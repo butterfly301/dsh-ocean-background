@@ -1,12 +1,12 @@
 {
-  "name": "@fairyonthetree/pirate-ocean",
+  "name": "dsh-ocean-background",
   "version": "0.1.4",
   "type": "module",
   "description": "A daytime sea behind the whole Harness window: a pirate ship for the main agent, a rowboat for every subagent, canvas that follows activity, and waves driven by token throughput.",
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/butterfly301/pirate-ocean.git"
+    "url": "git+https://github.com/butterfly301/dsh-ocean-background.git"
   },
   "exports": {
     ".": "./index.js",

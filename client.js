@@ -1,5 +1,5 @@
 window.__ModuleLoader__.load({
-  id: '@fairyonthetree/pirate-ocean',
+  id: 'dsh-ocean-background',
   factory() {
     const FRAME_ID = 'ocean-background-frame';
     const SHELL_STYLE_ID = 'ocean-background-shell';
