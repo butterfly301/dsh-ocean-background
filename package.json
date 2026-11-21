@@ -1,6 +1,6 @@
 {
   "name": "dsh-ocean-background",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "type": "module",
   "description": "A daytime sea behind the whole Harness window: a pirate ship for the main agent, a rowboat for every subagent, canvas that follows activity, and waves driven by token throughput.",
   "license": "MIT",
@@ -21,9 +21,7 @@
     "host",
     "runtime",
     "locale/*.json",
-    "docs",
-    "icon.svg",
-    "THIRD_PARTY_NOTICES.md"
+    "icon.svg"
   ],
   "dsh": {
     "client": {

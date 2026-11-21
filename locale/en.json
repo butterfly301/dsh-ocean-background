@@ -1,7 +1,6 @@
 {
   "meta": {
     "title": "Ocean background",
-    "description": "A daytime sea behind the whole Harness window: a pirate ship that keeps sailing right for the main agent, a dinghy for every subagent, sail state showing whether the agent is working, and waves that rise with token throughput.",
-    "detail": "docs/DETAIL.md"
+    "description": "A daytime sea behind the whole Harness window: a pirate ship that keeps sailing right for the main agent, a dinghy for every subagent, sail state showing whether the agent is working, and waves that rise with token throughput."
   }
 }

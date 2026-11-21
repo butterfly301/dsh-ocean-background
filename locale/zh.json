@@ -1,7 +1,6 @@
 {
   "meta": {
     "title": "海洋背景",
-    "description": "整个 Harness 窗口后方的日间海面：代表主 Agent 的海盗船持续向右航行，每个子 Agent 对应一艘小艇，帆态表示是否在工作，海浪随 token 吞吐起伏。",
-    "detail": "docs/DETAIL.md"
+    "description": "整个 Harness 窗口后方的日间海面：代表主 Agent 的海盗船持续向右航行，每个子 Agent 对应一艘小艇，帆态表示是否在工作，海浪随 token 吞吐起伏。"
   }
 }
