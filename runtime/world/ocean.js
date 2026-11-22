@@ -155,18 +155,39 @@ void main() {
     col *= 1.0 - hull * 0.28 * uShadow;
   }
 
-  // Wake: turbulent water under the stern plus the two diverging arms of the
-  // Kelvin wake. It is built in ship-local space so it follows the hull.
+  // Wake: a soft bow collar, two thin Kelvin arms and a churned trail behind
+  // the stern. The arms fade in aft of the stem so the wake never converges on
+  // a bright point at the bow, which is what a painted triangle looks like.
   if (uWake > 0.001) {
     vec2 rel = vWorld.xz - uShipPos.xz;
-    float behind = -rel.x;
-    float churn = smoothstep(3.2, 0.4, length(rel * vec2(1.0, 2.1))) * smoothstep(1.0, -1.0, rel.x);
-    float arm = abs(abs(rel.y) - max(behind, 0.0) * 0.42);
-    float arms = smoothstep(2.0, 0.25, arm) * smoothstep(1.0, 8.0, behind) * exp(-behind * 0.022);
-    float wakeNoise = smoothstep(0.35, 0.72, fbm2(vWorld.xz * 1.1 + vec2(uFlow * 0.30, 0.0)));
-    float wake = (churn * 0.55 + arms * 0.50) * (0.35 + wakeNoise * 0.65);
-    vec3 wakeColor = mix(uShallow, uFoamColor, 0.35);
-    col = mix(col, wakeColor, clamp(wake * 0.30 * uWake, 0.0, 0.28));
+    float lateral = abs(rel.y);
+    float bowX = 3.6;
+    float sternX = -3.8;
+    float aft = bowX - rel.x;
+
+    float collarNoise = fbm2(vec2(vWorld.x * 0.9, vWorld.z * 1.4) + vec2(uFlow * 0.2, uTime * 0.04));
+    float collarDistance = length(vec2(rel.x - (bowX - 0.6), lateral * 0.85));
+    float collar = (1.0 - smoothstep(0.15, 1.7, collarDistance))
+      * (1.0 - smoothstep(bowX - 0.2, bowX + 0.5, rel.x))
+      * (0.45 + 0.55 * smoothstep(0.30, 0.75, collarNoise));
+    col = mix(col, uFoamColor, clamp(collar * 0.42 * uWake, 0.0, 0.36));
+
+    float arm = abs(lateral - max(aft, 0.0) * 0.42);
+    float armNoise = smoothstep(0.35, 0.72, fbm2(vWorld.xz * 1.1 + vec2(uFlow * 0.30, 0.0)));
+    float arms = (1.0 - smoothstep(0.15, 1.10, arm))
+      * smoothstep(1.2, 4.0, aft)
+      * exp(-aft * 0.025)
+      * (0.30 + armNoise * 0.70);
+    col = mix(col, mix(uShallow, uFoamColor, 0.60), clamp(arms * 0.50 * uWake, 0.0, 0.35));
+
+    float behindStern = sternX - rel.x;
+    float width = 1.05 + max(behindStern, 0.0) * 0.32;
+    float chop = fbm2(vec2(vWorld.x * 0.55, vWorld.z * 1.15) + vec2(uFlow * 0.20, uTime * 0.03));
+    float trail = (1.0 - smoothstep(width * 0.35, width, lateral))
+      * smoothstep(-0.3, 1.2, behindStern)
+      * exp(-max(behindStern, 0.0) * 0.045)
+      * (0.35 + 0.65 * smoothstep(0.22, 0.80, chop + 0.34));
+    col = mix(col, uFoamColor, clamp(trail * 0.55 * uWake, 0.0, 0.55));
   }
 
   // Distance haze. Sampling the sky in the same horizontal direction as the
