@@ -9,7 +9,6 @@ const LAYERS = [
 const STEPS = 32;
 const SEA_COLOR = new THREE.Color('#cfe7e2');
 const SKY_COLOR = new THREE.Color('#7fa9b8');
-const pick = ([min, max]) => min + Math.random() * (max - min);
 
 function makeStreakTexture() {
   const canvas = document.createElement('canvas');
@@ -76,7 +75,8 @@ function shapeRibbon(geometry, points, halfHeight, aspect, widthPx, viewportHeig
   position.needsUpdate = true;
 }
 
-export function createWind(camera) {
+export function createWind(camera, { random = Math.random } = {}) {
+  const pick = ([min, max]) => min + random() * (max - min);
   const group = new THREE.Group();
   group.name = 'wind';
   camera.add(group);
@@ -111,7 +111,7 @@ export function createWind(camera) {
       mesh.frustumCulled = false;
       mesh.renderOrder = layer.foreground ? 20 : 0;
       group.add(mesh);
-      const motion = createWindLine({ band: layer.band, startDelay: pick(layer.delay), pointCount: STEPS + 1 });
+      const motion = createWindLine({ band: layer.band, startDelay: pick(layer.delay), pointCount: STEPS + 1, random });
       const streak = { layer, mesh, motion, widthPx: pick(layer.widthPx), opacity: pick(layer.opacity) };
       place(streak, motion.advance(0));
       streaks.push(streak);

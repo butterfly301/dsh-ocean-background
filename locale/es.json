@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Fondo oceánico",
+    "description": "Un mar diurno detrás de toda la ventana de Harness: un barco pirata que navega hacia la derecha para el agente principal, un bote por cada subagente, el estado de las velas indica si trabaja y las olas suben con el caudal de tokens."
+  },
+  "ui": {
+    "open": "Ajustes del mar",
+    "show": "Mostrar mar",
+    "strength": "Intensidad",
+    "running": "Reproduciendo",
+    "quality": "Calidad",
+    "balanced": "Equilibrada",
+    "high": "Alta",
+    "cameraDistance": "Distancia de cámara",
+    "cameraHeight": "Altura de cámara",
+    "cameraPitch": "Inclinación",
+    "cameraXOffset": "Desplazamiento horizontal",
+    "cameraHint": "Desplazamiento: negativo izquierda, positivo derecha, límite 8. Inclinación: negativo arriba, positivo abajo.",
+    "recovering": "El mar no está listo; interfaz sin cambios",
+    "mileageToday": "Navegado hoy",
+    "mileageFleet": "Navegado",
+    "mileageUnit": "mn"
+  }
+}

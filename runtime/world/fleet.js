@@ -1,19 +1,19 @@
 import * as THREE from 'three';
-import { sampleWaveAt } from './wave-field.js';
-import { toWorldX } from './world-motion.js';
+import { sampleWaveAt } from '../sim/wave-field.js';
+import { toWorldX } from '../sim/world-motion.js';
 import {
   createBerthAllocator,
   isTerminal,
   normalizeStatus,
   phaseFor,
   rowsOars,
-} from './fleet.js';
+} from '../sim/berth.js';
 
 const ENTER_X = -34;
 const EXIT_X = 40;
 const BERTH_SPEED = 5.6;
 
-export function createFleet({ scene, makeDinghy, getView }) {
+export function createFleet({ scene, makeDinghy, getView, random = Math.random }) {
   const boats = new Map();
   const berthAllocator = createBerthAllocator();
   let rootId = null;
@@ -49,10 +49,10 @@ export function createFleet({ scene, makeDinghy, getView }) {
       berth: new THREE.Vector3(berth.x, berth.y, berth.z),
       yaw: berth.yaw ?? 0,
       phase,
-      speed: BERTH_SPEED * (0.88 + Math.random() * 0.24),
+      speed: BERTH_SPEED * (0.88 + random() * 0.24),
       row: 0,
       targetRow: 0,
-      bob: Math.random() * 6.28,
+      bob: random() * 6.28,
       paddles: findPaddles(group),
     };
     group.scale.setScalar(berth.scale ?? 1);
@@ -133,7 +133,9 @@ export function createFleet({ scene, makeDinghy, getView }) {
           const step = Math.min(dist, boat.speed * dt);
           group.position.x += (dx / dist) * step;
           group.position.z += (dz / dist) * step;
-          group.rotation.y = Math.PI + boat.yaw * Math.min(1, dt * 1.2) + Math.max(-0.2, Math.min(0.2, (dz / Math.max(dist, 0.001)) * 0.6));
+          group.rotation.y = Math.PI
+            + boat.yaw * Math.min(1, dt * 1.2)
+            + Math.max(-0.2, Math.min(0.2, (dz / Math.max(dist, 0.001)) * 0.6));
         }
       } else if (boat.phase === 'berthed') {
         const follow = Math.min(1, dt * 0.8);

@@ -1,5 +1,8 @@
+// Pure berth layout for the fleet. No three.js, no DOM: given a viewport span
+// and a slot number it returns where a dinghy belongs. The runtime that owns
+// the meshes lives in world/fleet.js.
 
-export const CHILD_STATUS = Object.freeze([
+const CHILD_STATUS = Object.freeze([
   'working',
   'waiting',
   'completed',
@@ -11,7 +14,7 @@ export const CHILD_STATUS = Object.freeze([
 const KNOWN = new Set(CHILD_STATUS);
 const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
 
-export const FORMATION = Object.freeze({
+const FORMATION = Object.freeze({
   shipLength: 10,
   boatLength: 3.4,
   boatHalfBeam: 1.1,
@@ -27,17 +30,20 @@ export const FORMATION = Object.freeze({
   driftZ: 0.16,
 });
 
-export const DEFAULT_VIEW = Object.freeze({ minX: -8, maxX: 18 });
+const DEFAULT_VIEW = Object.freeze({ minX: -8, maxX: 18 });
 
 const COLUMN_CACHE_LIMIT = 4;
+const BERTH_CACHE_LIMIT = 256;
 let columnCache = [];
 
 function normalizeView(view) {
   const rawMin = Number.isFinite(view?.minX) ? view.minX : DEFAULT_VIEW.minX;
   const rawMax = Number.isFinite(view?.maxX) ? view.maxX : DEFAULT_VIEW.maxX;
-  const minX = Math.min(rawMin, rawMax);
-  const maxX = Math.max(rawMin, rawMax);
-  return { minX, maxX };
+  return { minX: Math.min(rawMin, rawMax), maxX: Math.max(rawMin, rawMax) };
+}
+
+function viewKeyOf(view) {
+  return `${view.minX}:${view.maxX}`;
 }
 
 function computeColumns(view) {
@@ -64,11 +70,12 @@ function computeColumns(view) {
 
 function columnsForView(view) {
   const normalized = normalizeView(view);
+  const key = viewKeyOf(normalized);
   for (const entry of columnCache) {
-    if (entry.view.minX === normalized.minX && entry.view.maxX === normalized.maxX) return entry.columns;
+    if (entry.key === key) return entry.columns;
   }
   const columns = computeColumns(normalized);
-  columnCache = [{ view: normalized, columns }, ...columnCache].slice(0, COLUMN_CACHE_LIMIT);
+  columnCache = [{ key, columns }, ...columnCache].slice(0, COLUMN_CACHE_LIMIT);
   return columns;
 }
 
@@ -88,15 +95,19 @@ function centered(slot, salt, amount) {
   return (unitFor(slot, salt) * 2 - 1) * amount;
 }
 
-export function berthForSlot(slot, view = DEFAULT_VIEW) {
-  const columns = columnsForView(view);
+function berthForSlot(slot, view = DEFAULT_VIEW) {
+  const normalizedView = normalizeView(view);
+  const columns = columnsForView(normalizedView);
   const normalized = Math.max(0, Math.floor(Number.isFinite(slot) ? slot : 0));
   const perRing = Math.max(2, columns.length * 2);
   const ring = Math.floor(normalized / perRing);
   const within = normalized % perRing;
   const column = columns[Math.floor(within / 2) % columns.length];
   const side = within % 2 === 0 ? -1 : 1;
-  const x = Math.min(view.maxX, Math.max(view.minX, column + centered(normalized, 0x1f123bb5, FORMATION.jitterX)));
+  const x = Math.min(
+    normalizedView.maxX,
+    Math.max(normalizedView.minX, column + centered(normalized, 0x1f123bb5, FORMATION.jitterX)),
+  );
   const z = side * (FORMATION.sideNear + ring * FORMATION.sideStep)
     + centered(normalized, 0x3b6c1a5d, FORMATION.jitterZ);
   return {
@@ -107,18 +118,6 @@ export function berthForSlot(slot, view = DEFAULT_VIEW) {
     scale: 1 + centered(normalized, 0x7a4f16c3, FORMATION.jitterScale),
   };
 }
-
-function hashIdentity(identity) {
-  const text = String(identity);
-  let hash = 2166136261;
-  for (let index = 0; index < text.length; index += 1) {
-    hash ^= text.charCodeAt(index);
-    hash = Math.imul(hash, 16777619);
-  }
-  return hash >>> 0;
-}
-
-const PREVIEW_SLOTS = 8;
 
 export function viewForCamera({
   cameraX,
@@ -141,10 +140,13 @@ export function viewForCamera({
 export function createBerthAllocator() {
   const assignments = new Map();
   const occupied = new Set();
+  const berthCache = new Map();
   let view = DEFAULT_VIEW;
+  let viewKey = viewKeyOf(view);
 
   function setView(next) {
     view = normalizeView(next);
+    viewKey = viewKeyOf(view);
     return view;
   }
 
@@ -152,6 +154,20 @@ export function createBerthAllocator() {
     let slot = 0;
     while (occupied.has(slot)) slot += 1;
     return slot;
+  }
+
+  function localFor(slot) {
+    const hit = berthCache.get(slot);
+    if (hit !== undefined && hit.key === viewKey) return hit.berth;
+    const berth = berthForSlot(slot, view);
+    if (berthCache.size >= BERTH_CACHE_LIMIT) {
+      for (const [cachedSlot, entry] of berthCache) {
+        if (entry.key !== viewKey) berthCache.delete(cachedSlot);
+      }
+      if (berthCache.size >= BERTH_CACHE_LIMIT) berthCache.clear();
+    }
+    berthCache.set(slot, { key: viewKey, berth });
+    return berth;
   }
 
   function reserve(identity, shipX = 0, nextView) {
@@ -163,8 +179,15 @@ export function createBerthAllocator() {
       assignments.set(id, slot);
       occupied.add(slot);
     }
-    const local = berthForSlot(slot, view);
-    return { ...local, x: shipX + local.x };
+    const local = localFor(slot);
+    return {
+      x: shipX + local.x,
+      y: local.y,
+      z: local.z,
+      yaw: local.yaw,
+      scale: local.scale,
+      slot,
+    };
   }
 
   function remove(identity) {
@@ -173,11 +196,13 @@ export function createBerthAllocator() {
     if (slot === undefined) return;
     assignments.delete(id);
     occupied.delete(slot);
+    berthCache.delete(slot);
   }
 
   function clear() {
     assignments.clear();
     occupied.clear();
+    berthCache.clear();
   }
 
   return {
@@ -188,14 +213,6 @@ export function createBerthAllocator() {
     get size() { return assignments.size; },
     get view() { return view; },
   };
-}
-
-export function berthPosition(identity, shipX = 0, view = DEFAULT_VIEW) {
-  const slot = typeof identity === 'number'
-    ? Math.max(0, Math.floor(identity))
-    : hashIdentity(identity) % PREVIEW_SLOTS;
-  const local = berthForSlot(slot, view);
-  return { ...local, x: shipX + local.x };
 }
 
 export function normalizeStatus(entry) {

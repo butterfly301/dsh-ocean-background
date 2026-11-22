@@ -24,6 +24,14 @@ const ROCKY_ISLAND = 'rocky-island';
 const PALM_NAME = 'island-coconut-palm';
 const TAU = Math.PI * 2;
 
+// Rotations derived from the layout seed instead of the shared random stream,
+// so asynchronous asset loads cannot change the outcome of a replay.
+function hashUnit(a, b) {
+  let hash = 2166136261 ^ (Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263));
+  hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
+  return ((hash ^ (hash >>> 16)) >>> 0) / 4294967296;
+}
+
 function makeBirdTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -62,7 +70,7 @@ function surfaceGeometry(surface) {
   return geometry;
 }
 
-export function createScenery(scene, camera) {
+export function createScenery(scene, camera, { random = Math.random } = {}) {
   const cameraZ = () => (camera ? camera.position.z : 44);
   const group = new THREE.Group();
   group.name = 'scenery';
@@ -104,7 +112,7 @@ export function createScenery(scene, camera) {
     mesh.visible = true;
     mesh.position.set(palm.x, palm.y, palm.z);
     mesh.scale.setScalar(palm.scale);
-    mesh.rotation.y = Math.random() * TAU;
+    mesh.rotation.y = hashUnit(palm.x * 100, palm.z * 100) * TAU;
   }
 
   function removeIslandExtras(entry) {
@@ -132,7 +140,7 @@ export function createScenery(scene, camera) {
         data.top.z + Math.sin(angle) * 0.9,
       );
       shrub.scale.set(0.55 + index * 0.08, 0.34, 0.5);
-      shrub.rotation.y = Math.random() * Math.PI;
+      shrub.rotation.y = hashUnit(entry.seed * 100, index) * Math.PI;
       entry.island.add(shrub);
     }
   }
@@ -141,7 +149,7 @@ export function createScenery(scene, camera) {
     const rock = rocks.make(name, footprint);
     if (!rock) return;
     rock.position.set(Math.cos(angle) * radius, height, Math.sin(angle) * radius * 0.72);
-    rock.rotation.y = Math.random() * TAU;
+    rock.rotation.y = random() * TAU;
     entry.island.add(rock);
   }
 
@@ -155,18 +163,18 @@ export function createScenery(scene, camera) {
     }
     if (!rocks.isReady) return;
 
-    const main = rocks.make('tall_rock', 6.0 + Math.random() * 1.8);
+    const main = rocks.make('tall_rock', 6.0 + random() * 1.8);
     if (main) {
-      main.position.set((Math.random() - 0.5) * 1.0, -0.22, (Math.random() - 0.5) * 1.0);
-      main.rotation.y = Math.random() * TAU;
+      main.position.set((random() - 0.5) * 1.0, -0.22, (random() - 0.5) * 1.0);
+      main.rotation.y = random() * TAU;
       entry.island.add(main);
     }
-    placeRock(entry, 'rock_d', 4.6 + Math.random() * 1.6, Math.random() * TAU, 3.2, -0.25);
-    if (Math.random() < 0.8) {
-      placeRock(entry, 'cliff_c', 1.3 + Math.random() * 0.6, Math.random() * TAU, 4.1, -0.18);
+    placeRock(entry, 'rock_d', 4.6 + random() * 1.6, random() * TAU, 3.2, -0.25);
+    if (random() < 0.8) {
+      placeRock(entry, 'cliff_c', 1.3 + random() * 0.6, random() * TAU, 4.1, -0.18);
     }
-    if (Math.random() < 0.55) {
-      placeRock(entry, Math.random() < 0.5 ? 'rock_d' : 'tall_rock', 2.2 + Math.random() * 1.2, Math.random() * TAU, 2.4, -0.20);
+    if (random() < 0.55) {
+      placeRock(entry, random() < 0.5 ? 'rock_d' : 'tall_rock', 2.2 + random() * 1.2, random() * TAU, 2.4, -0.20);
     }
   }
 
@@ -208,28 +216,28 @@ export function createScenery(scene, camera) {
     for (const child of [...reef.children]) reef.remove(child);
     if (!rocks.isReady) return;
 
-    const main = rocks.make(Math.random() < 0.55 ? 'tall_rock' : 'rock_d', 2.4 + Math.random() * 1.8);
+    const main = rocks.make(random() < 0.55 ? 'tall_rock' : 'rock_d', 2.4 + random() * 1.8);
     if (main) {
-      main.position.set((Math.random() - 0.5) * 1.4, -0.34 + Math.random() * 0.12, (Math.random() - 0.5) * 1.1);
-      main.rotation.y = Math.random() * TAU;
+      main.position.set((random() - 0.5) * 1.4, -0.34 + random() * 0.12, (random() - 0.5) * 1.1);
+      main.rotation.y = random() * TAU;
       reef.add(main);
     }
 
-    const extraCount = 1 + Math.floor(Math.random() * 2);
+    const extraCount = 1 + Math.floor(random() * 2);
     for (let index = 0; index < extraCount; index += 1) {
-      const useStack = Math.random() < 0.38;
-      const name = useStack ? 'cliff_c' : (Math.random() < 0.55 ? 'rock_d' : 'tall_rock');
-      const footprint = useStack ? 0.9 + Math.random() * 0.6 : 1.4 + Math.random() * 1.3;
+      const useStack = random() < 0.38;
+      const name = useStack ? 'cliff_c' : (random() < 0.55 ? 'rock_d' : 'tall_rock');
+      const footprint = useStack ? 0.9 + random() * 0.6 : 1.4 + random() * 1.3;
       const rock = rocks.make(name, footprint);
       if (!rock) continue;
-      const angle = Math.random() * TAU;
-      const radius = 1.2 + Math.random() * 2.1;
+      const angle = random() * TAU;
+      const radius = 1.2 + random() * 2.1;
       rock.position.set(
         Math.cos(angle) * radius,
-        -0.36 + Math.random() * 0.14,
+        -0.36 + random() * 0.14,
         Math.sin(angle) * radius * 0.75,
       );
-      rock.rotation.y = Math.random() * TAU;
+      rock.rotation.y = random() * TAU;
       reef.add(rock);
     }
   }
@@ -238,12 +246,12 @@ export function createScenery(scene, camera) {
   for (let index = 0; index < ISLAND_COUNT; index += 1) {
     const island = new THREE.Group();
     island.name = `tropical-island-${index + 1}`;
-    const archetype = chooseIslandArchetype(Math.random, visibleIslandTypes);
+    const archetype = chooseIslandArchetype(random, visibleIslandTypes);
     visibleIslandTypes.add(archetype);
     const laneX = [-ISLAND_SPAN * 0.45, -ISLAND_SPAN * 0.18, ISLAND_SPAN * 0.30][index];
-    island.position.set(laneX, 0, islandZ({ cameraZ: cameraZ(), archetype }));
-    island.scale.setScalar(islandScale());
-    island.rotation.y = Math.random() * TAU;
+    island.position.set(laneX, 0, islandZ({ cameraZ: cameraZ(), archetype, random }));
+    island.scale.setScalar(islandScale(random));
+    island.rotation.y = random() * TAU;
 
     const surface = new THREE.Mesh(new THREE.BufferGeometry(), islandMaterial);
     island.add(surface);
@@ -256,7 +264,7 @@ export function createScenery(scene, camera) {
   for (let index = 0; index < REEF_COUNT; index += 1) {
     const reef = new THREE.Group();
     reef.name = `reef-${index + 1}`;
-    reef.position.set(REEF_SPAN * (-0.375 + index * 0.25), 0, reefZ(cameraZ()));
+    reef.position.set(REEF_SPAN * (-0.375 + index * 0.25), 0, reefZ(cameraZ(), random));
     group.add(reef);
     const entry = { reef, span: REEF_SPAN };
     reefs.push(entry);
@@ -287,25 +295,25 @@ export function createScenery(scene, camera) {
     const material = new THREE.MeshBasicMaterial({
       map: birdTexture,
       transparent: true,
-      opacity: 0.55 + Math.random() * 0.25,
+      opacity: 0.55 + random() * 0.25,
       depthWrite: false,
       color: new THREE.Color('#3f5560'),
       side: THREE.DoubleSide,
     });
-    const size = 1.6 + Math.random() * 1.4;
+    const size = 1.6 + random() * 1.4;
     const bird = new THREE.Mesh(new THREE.PlaneGeometry(size, size * 0.62), material);
     bird.position.set(
-      (Math.random() - 0.5) * 110,
-      6 + Math.random() * 6,
-      -18 - Math.random() * 55,
+      (random() - 0.5) * 110,
+      6 + random() * 6,
+      -18 - random() * 55,
     );
     bird.frustumCulled = false;
     group.add(bird);
     birds.push({
       bird,
-      speed: 2.4 + Math.random() * 2.2,
-      phase: Math.random() * 6.28,
-      flap: 1.4 + Math.random() * 1.2,
+      speed: 2.4 + random() * 2.2,
+      phase: random() * 6.28,
+      flap: 1.4 + random() * 1.2,
     });
   }
 
@@ -313,15 +321,15 @@ export function createScenery(scene, camera) {
 
   function recycleIsland(entry, cameraX) {
     const island = entry.island;
-    island.position.x = recycleX(cameraX, entry.span);
-    island.scale.setScalar(islandScale());
-    island.rotation.y = Math.random() * TAU;
+    island.position.x = recycleX(cameraX, entry.span, random);
+    island.scale.setScalar(islandScale(random));
+    island.rotation.y = random() * TAU;
     const otherTypes = new Set(
       islands.filter((other) => other !== entry).map((other) => other.archetype),
     );
-    const archetype = chooseIslandArchetype(Math.random, otherTypes);
-    applyIslandArchetype(entry, archetype, Math.random() * 1000);
-    island.position.z = islandZ({ cameraZ: cameraZ(), archetype });
+    const archetype = chooseIslandArchetype(random, otherTypes);
+    applyIslandArchetype(entry, archetype, random() * 1000);
+    island.position.z = islandZ({ cameraZ: cameraZ(), archetype, random });
   }
 
   return {
@@ -330,18 +338,18 @@ export function createScenery(scene, camera) {
       for (const entry of islands) {
         const z = entry.island.position.z;
         if (islandNeedsPlacement({ z, cameraZ: lensZ, archetype: entry.archetype })) {
-          entry.island.position.z = islandZ({ cameraZ: lensZ, archetype: entry.archetype });
+          entry.island.position.z = islandZ({ cameraZ: lensZ, archetype: entry.archetype, random });
         }
         if (isBehindView(entry.island.position.x, cameraX, entry.span)) recycleIsland(entry, cameraX);
       }
       for (const entry of reefs) {
         const z = entry.reef.position.z;
         if (intrudesOnCamera(z, lensZ, REEF_CAMERA_CLEARANCE) || intrudesOnHull(z, REEF_HULL_HALF_DEPTH)) {
-          entry.reef.position.z = reefZ(lensZ);
+          entry.reef.position.z = reefZ(lensZ, random);
         }
         if (isBehindView(entry.reef.position.x, cameraX, entry.span)) {
-          entry.reef.position.x = recycleX(cameraX, entry.span);
-          entry.reef.position.z = reefZ(lensZ);
+          entry.reef.position.x = recycleX(cameraX, entry.span, random);
+          entry.reef.position.z = reefZ(lensZ, random);
           populateReef(entry);
         }
       }
@@ -352,8 +360,8 @@ export function createScenery(scene, camera) {
         item.bird.scale.y = 1 - 0.18 * Math.abs(Math.sin(time * item.flap + item.phase));
         if (item.bird.position.x < cameraX - 66) {
           item.bird.position.x = cameraX + 66;
-          item.bird.position.y = 6 + Math.random() * 6;
-          item.bird.position.z = -18 - Math.random() * 55;
+          item.bird.position.y = 6 + random() * 6;
+          item.bird.position.z = -18 - random() * 55;
         }
       }
     },

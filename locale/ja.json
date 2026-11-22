@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "海景設定",
+    "description": "Harness ウィンドウ全体の背後に広がる昼の海。メイン Agent の海賊船が右へ航行し、サブ Agent ごとに小舟が付き添い、帆の状態で作業中かどうかを示し、波は token のスループットで上下します。"
+  },
+  "ui": {
+    "open": "海景設定",
+    "show": "海面を表示",
+    "strength": "背景の強さ",
+    "running": "再生",
+    "quality": "画質",
+    "balanced": "バランス",
+    "high": "高",
+    "cameraDistance": "カメラ距離",
+    "cameraHeight": "カメラ高さ",
+    "cameraPitch": "カメラ仰角",
+    "cameraXOffset": "カメラ左右オフセット",
+    "cameraHint": "左右オフセット：負で左、正で右、上限 8。仰角：負で上向き、正で下向き。",
+    "recovering": "海面の準備ができていません",
+    "mileageToday": "本日の航行",
+    "mileageFleet": "累計航行",
+    "mileageUnit": "海里"
+  }
+}

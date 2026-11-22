@@ -1,6 +1,7 @@
 window.__ModuleLoader__.load({
   id: 'dsh-ocean-background',
   factory() {
+    const BASE = '/ocean-background';
     const FRAME_ID = 'ocean-background-frame';
     const SHELL_STYLE_ID = 'ocean-background-shell';
     const UI_STYLE_ID = 'ocean-background-ui-style';
@@ -10,569 +11,780 @@ window.__ModuleLoader__.load({
     const DOCK_ID = 'ocean-background-dock';
     const STORE_KEY = 'ocean-background:settings';
     const KILL_KEY = 'ocean-background:disabled';
+    const UI_NS = 'ocean-background-ui';
     const READY_TIMEOUT = 8000;
+    const SNAPSHOT_MS = 1000;
+    const PERSIST_MS = 250;
     const METERS_PER_NM = 1852;
-    const MILEAGE_POLL_MS = 1000;
 
-    const DEFAULTS = {
-      enabled: true, strength: 0.72, running: true, quality: 'balanced',
-      cameraDistance: 44, cameraHeight: 4.8, cameraPitch: 2.7, cameraXOffset: 0,
-    };
-    const CAMERA_LIMITS = {
-      cameraDistance: { min: 20, max: 100, step: 1 },
-      cameraHeight: { min: 2, max: 40, step: 0.1 },
-      cameraPitch: { min: -30, max: 60, step: 0.1 },
-      cameraXOffset: { min: -8, max: 8, step: 0.1 },
+    // English safety net only. Every other language lives in locale/*.json and
+    // is fetched from the plugin's own route.
+    const FALLBACK_TEXT = {
+      open: 'Ocean settings',
+      show: 'Show ocean',
+      strength: 'Strength',
+      running: 'Playing',
+      quality: 'Quality',
+      balanced: 'Balanced',
+      high: 'High',
+      cameraDistance: 'Camera distance',
+      cameraHeight: 'Camera height',
+      cameraPitch: 'Camera pitch',
+      cameraXOffset: 'Camera horizontal offset',
+      cameraHint: 'Horizontal offset: negative left, positive right; limit 8. Pitch: negative looks up, positive looks down.',
+      recovering: 'Sea not ready, interface untouched',
+      mileageToday: 'Sailed today',
+      mileageFleet: 'Sailed',
+      mileageUnit: 'nm',
     };
 
-    function cameraValue(key, value) {
-      const { min, max, step } = CAMERA_LIMITS[key];
-      if (!Number.isFinite(value)) return DEFAULTS[key];
-      const clamped = Math.min(max, Math.max(min, value));
-      return Number((Math.round(clamped / step) * step).toFixed(1));
-    }
+    // Styles live in runtime/deck-ui.css and runtime/deck-shell.css, served by
+    // the plugin route, so the deck file stays behaviour only.
+
+    const SKIN_VARS = [
+      '--ob-light',
+      '--ob-light-hi',
+      '--ob-light-lo',
+      '--ob-dark',
+      '--ob-dark-hi',
+      '--ob-dark-lo',
+    ];
 
     function displayNauticalMiles(meters) {
       return (Math.floor((meters * 100) / METERS_PER_NM + 1e-9) / 100).toFixed(2);
     }
 
-    const MESSAGES = {
-      zh: { open: '海景设置', show: '显示海面', strength: '背景强度', running: '播放', quality: '画质', balanced: '均衡', high: '高', cameraDistance: '摄像机距离', cameraHeight: '摄像机高度', cameraPitch: '摄像机俯仰角', cameraXOffset: '镜头左右偏移', cameraHint: '左右偏移：负值向左，正值向右，上限 8。俯仰角：负值向上，正值向下。', recovering: '海面未就绪，界面保持原样', mileageToday: '今日已航行', mileageFleet: '目前已航行', mileageUnit: '海里' },
-      en: { open: 'Ocean settings', show: 'Show ocean', strength: 'Strength', running: 'Playing', quality: 'Quality', balanced: 'Balanced', high: 'High', cameraDistance: 'Camera distance', cameraHeight: 'Camera height', cameraPitch: 'Camera pitch', cameraXOffset: 'Camera horizontal offset', cameraHint: 'Horizontal offset: negative left, positive right; limit 8. Pitch: negative looks up, positive looks down.', recovering: 'Sea not ready, interface untouched', mileageToday: 'Sailed today', mileageFleet: 'Sailed', mileageUnit: 'nm' },
-      ja: { open: '海景設定', show: '海面を表示', strength: '背景の強さ', running: '再生', quality: '画質', balanced: 'バランス', high: '高', cameraDistance: 'カメラ距離', cameraHeight: 'カメラ高さ', cameraPitch: 'カメラ仰角', cameraXOffset: 'カメラ左右オフセット', cameraHint: '左右オフセット：負で左、正で右、上限 8。仰角：負で上向き、正で下向き。', recovering: '海面の準備ができていません', mileageToday: '本日の航行', mileageFleet: '累計航行', mileageUnit: '海里' },
-      es: { open: 'Ajustes del mar', show: 'Mostrar mar', strength: 'Intensidad', running: 'Reproduciendo', quality: 'Calidad', balanced: 'Equilibrada', high: 'Alta', cameraDistance: 'Distancia de cámara', cameraHeight: 'Altura de cámara', cameraPitch: 'Inclinación', cameraXOffset: 'Desplazamiento horizontal', cameraHint: 'Desplazamiento: negativo izquierda, positivo derecha, límite 8. Inclinación: negativo arriba, positivo abajo.', recovering: 'El mar no está listo; interfaz sin cambios', mileageToday: 'Navegado hoy', mileageFleet: 'Navegado', mileageUnit: 'mn' },
-      fr: { open: 'Réglages océan', show: 'Afficher l’océan', strength: 'Opacité', running: 'Lecture', quality: 'Qualité', balanced: 'Équilibrée', high: 'Haute', cameraDistance: 'Distance caméra', cameraHeight: 'Hauteur caméra', cameraPitch: 'Inclinaison', cameraXOffset: 'Décalage horizontal', cameraHint: 'Décalage : négatif à gauche, positif à droite, limite 8. Inclinaison : négatif vers le haut, positif vers le bas.', recovering: 'Océan indisponible, interface inchangée', mileageToday: 'Parcouru aujourd’hui', mileageFleet: 'Parcouru', mileageUnit: 'M' },
-      de: { open: 'Meeres-Einstellungen', show: 'Meer anzeigen', strength: 'Deckkraft', running: 'Aktiv', quality: 'Qualität', balanced: 'Ausgewogen', high: 'Hoch', cameraDistance: 'Kameraabstand', cameraHeight: 'Kamerahöhe', cameraPitch: 'Kameraneigung', cameraXOffset: 'Seitlicher Versatz', cameraHint: 'Versatz: negativ links, positiv rechts, Limit 8. Neigung: negativ nach oben, positiv nach unten.', recovering: 'Meer nicht bereit, Oberfläche unverändert', mileageToday: 'Heute gesegelt', mileageFleet: 'Gesegelt', mileageUnit: 'sm' },
-      ru: { open: 'Настройки моря', show: 'Показать море', strength: 'Интенсивность', running: 'Воспроизведение', quality: 'Качество', balanced: 'Баланс', high: 'Высокое', cameraDistance: 'Дистанция камеры', cameraHeight: 'Высота камеры', cameraPitch: 'Наклон камеры', cameraXOffset: 'Смещение по горизонтали', cameraHint: 'Смещение: минус влево, плюс вправо, предел 8. Наклон: минус вверх, плюс вниз.', recovering: 'Море не готово, интерфейс не изменён', mileageToday: 'Пройдено сегодня', mileageFleet: 'Пройдено', mileageUnit: 'миль' },
-      pt: { open: 'Ajustes do oceano', show: 'Mostrar oceano', strength: 'Intensidade', running: 'Reproduzindo', quality: 'Qualidade', balanced: 'Equilibrada', high: 'Alta', cameraDistance: 'Distância da câmera', cameraHeight: 'Altura da câmera', cameraPitch: 'Inclinação', cameraXOffset: 'Deslocamento horizontal', cameraHint: 'Deslocamento: negativo à esquerda, positivo à direita, limite 8. Inclinação: negativo para cima, positivo para baixo.', recovering: 'Oceano indisponível, interface inalterada', mileageToday: 'Navegado hoje', mileageFleet: 'Navegado', mileageUnit: 'mn' },
-    };
-    const FALLBACK_LANGUAGE = 'en';
-
-    function messagesFor(languageTag) {
-      const tag = String(languageTag || '').toLowerCase();
-      const base = tag.split('-')[0];
-      const matched = MESSAGES[tag] ? tag : (MESSAGES[base] ? base : FALLBACK_LANGUAGE);
-      return { ...MESSAGES[FALLBACK_LANGUAGE], ...MESSAGES[matched] };
-    }
-
-    function shellCss(strength) {
-      const light = Math.min(0.95, Math.max(0.35, strength));
-      const dark = Math.max(0.40, light - 0.12);
-      const a = (value) => Number(value.toFixed(2));
-      return `
-body {
-  background: transparent !important;
-}
-body #root {
-  --dsw-alias-bg-base: rgba(255, 255, 255, ${a(light)}) !important;
-  --dsw-alias-bg-layer-1: rgba(255, 255, 255, ${a(light)}) !important;
-  --dsw-alias-bg-layer-2: rgba(255, 255, 255, ${a(light)}) !important;
-  --dsw-alias-bg-layer-3: rgba(255, 255, 255, ${a(light)}) !important;
-  --dsw-alias-bg-module-platform: rgba(245, 246, 247, ${a(light + 0.02)}) !important;
-  --dsw-alias-bg-multi-select: rgba(245, 246, 247, ${a(light + 0.02)}) !important;
-  --dsw-alias-bg-overlay: rgba(233, 236, 242, .97) !important;
-  --dsw-specific-sidebar-fill: rgba(249, 250, 251, ${a(Math.max(0.36, light - 0.04))}) !important;
-  --dsw-specific-selector: rgba(245, 246, 247, ${a(light + 0.02)}) !important;
-}
-body[data-ds-dark-theme] #root {
-  --dsw-alias-bg-base: rgba(9, 12, 16, ${a(dark)}) !important;
-  --dsw-alias-bg-layer-1: rgba(12, 16, 22, ${a(dark)}) !important;
-  --dsw-alias-bg-layer-2: rgba(16, 20, 27, ${a(dark)}) !important;
-  --dsw-alias-bg-layer-3: rgba(20, 25, 33, ${a(dark)}) !important;
-  --dsw-alias-bg-module-platform: rgba(13, 17, 23, ${a(dark + 0.02)}) !important;
-  --dsw-alias-bg-multi-select: rgba(13, 17, 23, ${a(dark + 0.02)}) !important;
-  --dsw-alias-bg-overlay: rgba(18, 22, 30, .97) !important;
-  --dsw-specific-sidebar-fill: rgba(11, 15, 21, ${a(Math.max(0.35, dark - 0.05))}) !important;
-  --dsw-specific-selector: rgba(13, 17, 23, ${a(dark + 0.02)}) !important;
-}
-html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) {
-  background: var(--dsw-alias-bg-base) !important;
-}
-body #root [data-composer-seat] {
-  background: none !important;
-}
-
-body #root [data-composer-seat] {
-  --dsw-alias-bg-base: rgba(255, 255, 255, 0.55) !important;
-  --dsw-alias-bg-layer-1: rgba(255, 255, 255, 0.55) !important;
-  --dsw-alias-bg-layer-2: rgba(255, 255, 255, 0.55) !important;
-  --dsw-alias-bg-layer-3: rgba(255, 255, 255, 0.55) !important;
-  --dsw-specific-input-major: rgba(255, 255, 255, 0.55) !important;
-}
-body[data-ds-dark-theme] #root [data-composer-seat] {
-  --dsw-alias-bg-base: rgba(26, 30, 37, 0.55) !important;
-  --dsw-alias-bg-layer-1: rgba(26, 30, 37, 0.55) !important;
-  --dsw-alias-bg-layer-2: rgba(26, 30, 37, 0.55) !important;
-  --dsw-alias-bg-layer-3: rgba(26, 30, 37, 0.55) !important;
-  --dsw-specific-input-major: rgba(26, 30, 37, 0.55) !important;
-}
-body #root [data-slot="sidebar"] {
-  --dsw-specific-sidebar-fill: transparent !important;
-}
-html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) > :is(:first-child, :nth-child(2), [data-rightbar-col], [data-shell-bottom]),
-html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) > :nth-child(2) [data-phase],
-html:is([data-platform="darwin"], [data-windows-titlebar]) body #root [data-rightbar-col] [data-dockkit-host="dock"] > [data-dockkit-content] {
-  background: transparent !important;
-}
-html[data-windows-titlebar] body #root div:has(> [data-shell-overlay])::before {
-  background: transparent !important;
-}
-body [data-slot="main.conversation"] {
-  --dsw-specific-input-major: var(--dsw-alias-bg-layer-1) !important;
-  --dsw-specific-bubble: var(--dsw-alias-bg-layer-2) !important;
-  --dsw-alias-markdown-code-block: var(--dsw-alias-bg-layer-1) !important;
-  --dsw-alias-markdown-code-block-banner: var(--dsw-alias-bg-layer-2) !important;
-}
-body :is([data-shortcut-modal="settings"], [role="dialog"], [role="alertdialog"]):not(#${PANEL_ID}) {
-  background: rgba(250, 251, 253, .97) !important;
-}
-body[data-ds-dark-theme] :is([data-shortcut-modal="settings"], [role="dialog"], [role="alertdialog"]):not(#${PANEL_ID}) {
-  background: rgba(24, 28, 35, .97) !important;
-}
-`;
-    }
-
-    const UI_CSS = `
-#${DOCK_ID} {
-  position: fixed; right: 14px; bottom: 12px; z-index: 6000;
-  display: flex; align-items: center; gap: 8px;
-  pointer-events: none;
-}
-#${BUTTON_ID} {
-  flex: none;
-  width: 30px; height: 30px; padding: 0; border-radius: 9px;
-  display: flex; align-items: center; justify-content: center;
-  cursor: pointer; opacity: .8; pointer-events: auto;
-  border: 1px solid rgba(120, 170, 190, .38);
-  background: rgba(16, 40, 50, .55);
-  color: #e8f6fb;
-  backdrop-filter: blur(8px) saturate(130%);
-  transition: opacity .16s ease, background .16s ease, border-color .16s ease;
-}
-#${BUTTON_ID}:hover, #${BUTTON_ID}:focus-visible {
-  opacity: 1; background: rgba(20, 54, 66, .8); border-color: rgba(160, 220, 235, .65);
-}
-#${BUTTON_ID}[data-on="false"] { color: #c9d6da; border-color: rgba(150, 170, 180, .34); }
-#${MILEAGE_ID} {
-  flex: none;
-  height: 30px; display: flex; align-items: center;
-  box-sizing: border-box;
-  font: 600 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #082c36; white-space: nowrap;
-  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 4px rgba(255, 255, 255, .95), 0 1px 2px rgba(255, 255, 255, .9);
-  pointer-events: none; user-select: none;
-}
-#${MILEAGE_ID}[hidden] { display: none; }
-body[data-ds-dark-theme] #${MILEAGE_ID} {
-  color: #f2fafd;
-  text-shadow: 0 0 2px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9), 0 1px 3px rgba(0, 0, 0, .85);
-}
-#${PANEL_ID} {
-  position: fixed; right: 14px; bottom: 50px; z-index: 6001;
-  width: 240px; padding: 13px 14px 14px; border-radius: 12px;
-  max-height: calc(100dvh - 80px); overflow-y: auto;
-  background: rgba(248, 251, 252, .97);
-  border: 1px solid rgba(20, 60, 75, .16);
-  box-shadow: 0 12px 32px rgba(9, 32, 40, .22);
-  font: 12px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
-  color: #16333d;
-}
-body[data-ds-dark-theme] #${PANEL_ID} {
-  background: rgba(20, 27, 33, .97);
-  border-color: rgba(160, 200, 215, .22);
-  color: #e2eef2;
-}
-#${PANEL_ID}[hidden] { display: none; }
-#${PANEL_ID} .ob-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0 0; }
-#${PANEL_ID} .ob-row:first-child { margin-top: 0; }
-#${PANEL_ID} .ob-title { font-weight: 600; margin: 0 0 6px; }
-#${PANEL_ID} .ob-note { margin: 8px 0 0; opacity: .7; font-size: 11px; }
-#${PANEL_ID} input[type="range"] { width: 100%; margin: 6px 0 0; }
-#${PANEL_ID} select { font: inherit; padding: 2px 6px; border-radius: 6px; }
-#${PANEL_ID} label { display: block; }
-`;
-
-    function readSettings() {
-      try {
-        const raw = window.localStorage.getItem(STORE_KEY);
-        const saved = raw ? JSON.parse(raw) : {};
-        return {
-          enabled: typeof saved?.enabled === 'boolean' ? saved.enabled : DEFAULTS.enabled,
-          strength: Number.isFinite(saved?.strength) ? Math.min(0.95, Math.max(0.35, saved.strength)) : DEFAULTS.strength,
-          running: typeof saved?.running === 'boolean' ? saved.running : DEFAULTS.running,
-          quality: saved?.quality === 'high' ? 'high' : 'balanced',
-          cameraDistance: cameraValue('cameraDistance', saved?.cameraDistance),
-          cameraHeight: cameraValue('cameraHeight', saved?.cameraHeight),
-          cameraPitch: cameraValue('cameraPitch', saved?.cameraPitch),
-          cameraXOffset: cameraValue('cameraXOffset', saved?.cameraXOffset),
-        };
-      } catch {
-        return { ...DEFAULTS };
-      }
-    }
-
-    function writeSettings(settings) {
-      try {
-        window.localStorage.setItem(STORE_KEY, JSON.stringify(settings));
-      } catch {}
-    }
-
-    function setStyle(id, css) {
+    function ensureStylesheet(id, href) {
       let node = document.getElementById(id);
       if (!node) {
-        node = document.createElement('style');
+        node = document.createElement('link');
         node.id = id;
+        node.rel = 'stylesheet';
+        node.href = href;
         (document.head || document.documentElement).appendChild(node);
       }
-      node.textContent = css;
       return node;
+    }
+
+    function createSkin(root) {
+      function apply(strength) {
+        const light = Math.min(0.95, Math.max(0.35, strength));
+        const dark = Math.max(0.40, light - 0.12);
+        const alpha = (value) => String(Number(value.toFixed(2)));
+        root.style.setProperty('--ob-light', alpha(light));
+        root.style.setProperty('--ob-light-hi', alpha(light + 0.02));
+        root.style.setProperty('--ob-light-lo', alpha(Math.max(0.36, light - 0.04)));
+        root.style.setProperty('--ob-dark', alpha(dark));
+        root.style.setProperty('--ob-dark-hi', alpha(dark + 0.02));
+        root.style.setProperty('--ob-dark-lo', alpha(Math.max(0.35, dark - 0.05)));
+        ensureStylesheet(SHELL_STYLE_ID, `${BASE}/deck-shell.css`).disabled = false;
+      }
+      function remove() {
+        const node = document.getElementById(SHELL_STYLE_ID);
+        if (node) node.disabled = true;
+        for (const name of SKIN_VARS) root.style.removeProperty(name);
+      }
+      return { apply, remove };
+    }
+
+    function createSettingsStore(contract) {
+      const { normalizeSettings, SETTINGS_SCHEMA } = contract;
+      let current = read();
+      let timer = 0;
+      const listeners = new Set();
+
+      function read() {
+        try {
+          const raw = window.localStorage.getItem(STORE_KEY);
+          if (raw) return normalizeSettings(JSON.parse(raw));
+        } catch {}
+        return normalizeSettings({});
+      }
+
+      function persist() {
+        try {
+          window.localStorage.setItem(STORE_KEY, JSON.stringify(current));
+        } catch {}
+      }
+
+      function schedulePersist() {
+        if (timer !== 0) return;
+        timer = window.setTimeout(() => {
+          timer = 0;
+          persist();
+        }, PERSIST_MS);
+      }
+
+      function set(patch) {
+        const next = normalizeSettings({ ...current, ...patch });
+        let changed = false;
+        for (const key of Object.keys(SETTINGS_SCHEMA.fields)) {
+          if (next[key] !== current[key]) {
+            changed = true;
+            break;
+          }
+        }
+        current = next;
+        if (!changed) return false;
+        schedulePersist();
+        for (const listener of listeners) listener(current, patch);
+        return true;
+      }
+
+      return {
+        get current() { return current; },
+        set,
+        subscribe(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        flush() {
+          if (timer !== 0) {
+            window.clearTimeout(timer);
+            timer = 0;
+          }
+          persist();
+        },
+      };
+    }
+
+    function createLocaleLoader(ctx, fallback) {
+      let text = { ...fallback };
+      let generation = 0;
+      const listeners = new Set();
+      const disposers = new Map();
+
+      function activeTag() {
+        const snapshot = typeof ctx.locale?.getSnapshot === 'function' ? ctx.locale.getSnapshot() : null;
+        return snapshot?.active || document.documentElement.lang || navigator.language || 'en';
+      }
+
+      function emit() {
+        for (const listener of listeners) listener(text);
+      }
+
+      function load() {
+        const tag = String(activeTag());
+        const mine = ++generation;
+        fetch(`${BASE}/locale/${encodeURIComponent(tag)}.json`, { cache: 'no-store' })
+          .then((response) => (response && response.ok ? response.json() : null))
+          .then((payload) => {
+            if (mine !== generation) return;
+            const ui = payload && typeof payload.ui === 'object' ? payload.ui : null;
+            if (!ui) return;
+            text = { ...fallback, ...ui };
+            const lang = typeof payload.lang === 'string' && payload.lang !== '' ? payload.lang : tag;
+            if (typeof ctx.locale?.register === 'function' && !disposers.has(lang)) {
+              try {
+                disposers.set(lang, ctx.locale.register(UI_NS, lang, ui));
+              } catch {}
+            }
+            emit();
+          })
+          .catch(() => {});
+      }
+
+      return {
+        get text() { return text; },
+        load,
+        subscribe(listener) {
+          listeners.add(listener);
+          return () => listeners.delete(listener);
+        },
+        dispose() {
+          for (const dispose of disposers.values()) {
+            try { dispose?.(); } catch {}
+          }
+          disposers.clear();
+          listeners.clear();
+        },
+      };
+    }
+
+    function createPanel({ contract, settings, getText }) {
+      const { SETTINGS_SCHEMA } = contract;
+      const { order, fields } = SETTINGS_SCHEMA;
+      const panel = document.createElement('div');
+      panel.id = PANEL_ID;
+      panel.setAttribute('role', 'dialog');
+      panel.hidden = true;
+
+      const controls = new Map();
+      const title = document.createElement('p');
+      title.className = 'ob-title';
+      title.dataset.obText = 'open';
+      panel.appendChild(title);
+
+      for (const key of order) {
+        const spec = fields[key];
+        const row = document.createElement('div');
+        row.className = 'ob-row';
+        const inputId = `ob-${key}`;
+        const label = document.createElement('label');
+        label.htmlFor = inputId;
+        label.dataset.obText = spec.label;
+        row.appendChild(label);
+
+        let input;
+        let output = null;
+        if (spec.control === 'checkbox') {
+          input = document.createElement('input');
+          input.type = 'checkbox';
+          input.id = inputId;
+          row.appendChild(input);
+        } else if (spec.control === 'select') {
+          input = document.createElement('select');
+          input.id = inputId;
+          for (const value of spec.values) {
+            const option = document.createElement('option');
+            option.value = value;
+            option.dataset.obOption = spec.optionLabels?.[value] ?? value;
+            input.appendChild(option);
+          }
+          row.appendChild(input);
+        } else {
+          output = document.createElement('output');
+          output.id = `${inputId}-out`;
+          output.htmlFor = inputId;
+          row.appendChild(output);
+        }
+
+        if (spec.control === 'percent') {
+          const block = document.createElement('div');
+          block.appendChild(row);
+          input = document.createElement('input');
+          input.type = 'range';
+          input.id = inputId;
+          input.min = String(Math.round(spec.min * 100));
+          input.max = String(Math.round(spec.max * 100));
+          input.step = String(Math.round(spec.step * 100));
+          block.appendChild(input);
+          panel.appendChild(block);
+        } else {
+          panel.appendChild(row);
+          if (spec.control === 'range') {
+            input = document.createElement('input');
+            input.type = 'range';
+            input.id = inputId;
+            input.min = String(spec.min);
+            input.max = String(spec.max);
+            input.step = String(spec.step);
+            panel.appendChild(input);
+          }
+        }
+
+        input.addEventListener(spec.type === 'number' ? 'input' : 'change', () => {
+          if (spec.type === 'boolean') {
+            settings.set({ [key]: input.checked });
+          } else if (spec.control === 'percent') {
+            settings.set({ [key]: Number(input.value) / 100 });
+          } else if (spec.type === 'number') {
+            settings.set({ [key]: Number(input.value) });
+          } else {
+            settings.set({ [key]: input.value });
+          }
+        });
+        controls.set(key, { spec, input, output });
+      }
+
+      const hint = document.createElement('p');
+      hint.className = 'ob-note';
+      hint.dataset.obText = 'cameraHint';
+      panel.appendChild(hint);
+
+      const note = document.createElement('p');
+      note.className = 'ob-note';
+      note.dataset.obText = 'recovering';
+      note.hidden = true;
+      panel.appendChild(note);
+
+      function sync() {
+        const current = settings.current;
+        for (const [key, { spec, input, output }] of controls) {
+          const value = current[key];
+          if (spec.type === 'boolean') {
+            input.checked = value;
+          } else if (spec.control === 'percent') {
+            const percent = Math.round(value * 100);
+            if (input.value !== String(percent)) input.value = String(percent);
+            output.textContent = `${percent}%`;
+          } else if (spec.type === 'number') {
+            if (input.value !== String(value)) input.value = String(value);
+            output.textContent = `${value.toFixed(spec.decimals)}${spec.unit ?? ''}`;
+          } else {
+            input.value = value;
+          }
+        }
+      }
+
+      function refreshText() {
+        const text = getText();
+        panel.setAttribute('aria-label', text.open);
+        for (const node of panel.querySelectorAll('[data-ob-text]')) {
+          const key = node.dataset.obText;
+          if (key && typeof text[key] === 'string') node.textContent = text[key];
+        }
+        for (const option of panel.querySelectorAll('[data-ob-option]')) {
+          const key = option.dataset.obOption;
+          if (key && typeof text[key] === 'string') option.textContent = text[key];
+        }
+      }
+
+      return {
+        element: panel,
+        sync,
+        refreshText,
+        setNoteVisible(visible) { note.hidden = !visible; },
+      };
+    }
+
+    function createMileageLabel() {
+      const label = document.createElement('div');
+      label.id = MILEAGE_ID;
+      label.setAttribute('role', 'status');
+      label.setAttribute('aria-live', 'polite');
+      label.hidden = true;
+      let last = null;
+      return {
+        element: label,
+        set(data) {
+          if (!data || data.ok !== true) return;
+          last = data;
+        },
+        render(text, visible) {
+          if (!last) {
+            label.hidden = true;
+            return;
+          }
+          const fleet = last.mode === 'fleet';
+          const meters = fleet ? last.fleetMeters : last.todayMeters;
+          if (typeof meters !== 'number' || !Number.isFinite(meters) || meters < 0) {
+            label.hidden = true;
+            return;
+          }
+          const value = displayNauticalMiles(meters);
+          const next = `${fleet ? text.mileageFleet : text.mileageToday} ${value} ${text.mileageUnit}`;
+          if (label.textContent !== next) label.textContent = next;
+          label.hidden = !(visible && next !== '');
+        },
+        clear() {
+          last = null;
+          label.textContent = '';
+          label.hidden = true;
+        },
+        hide() {
+          label.hidden = true;
+        },
+        hasData() {
+          return last !== null;
+        },
+      };
+    }
+
+    function createFrameHost({ contract, onReady, onError, onLoad = () => {} }) {
+      let element = null;
+      let ready = false;
+      let deadline = 0;
+
+      function post(payload) {
+        try {
+          element?.contentWindow?.postMessage(payload, location.origin);
+        } catch {}
+      }
+
+      function clearDeadline() {
+        if (deadline !== 0) window.clearTimeout(deadline);
+        deadline = 0;
+      }
+
+      function arm() {
+        if (!element || ready || document.hidden || deadline !== 0) return;
+        const pending = element;
+        deadline = window.setTimeout(() => {
+          deadline = 0;
+          if (element !== pending || ready) return;
+          unmount();
+          onError('timeout');
+        }, READY_TIMEOUT);
+      }
+
+      function mount() {
+        if (element || document.hidden) return;
+        ready = false;
+        element = document.createElement('iframe');
+        element.id = FRAME_ID;
+        element.setAttribute('aria-hidden', 'true');
+        element.setAttribute('tabindex', '-1');
+        element.title = 'Ocean background';
+        element.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:0;pointer-events:none;background:transparent;';
+        element.addEventListener('load', () => {
+          onLoad();
+          arm();
+        });
+        element.src = `${BASE}/?debug=0`;
+        const host = document.body || document.documentElement;
+        host.insertBefore(element, host.firstChild);
+        arm();
+      }
+
+      function unmount() {
+        clearDeadline();
+        element?.remove();
+        element = null;
+        ready = false;
+      }
+
+      function markReady() {
+        ready = true;
+        clearDeadline();
+      }
+
+      function setVisible(visible) {
+        if (element) element.style.visibility = visible ? '' : 'hidden';
+      }
+
+      return {
+        mount,
+        unmount,
+        post,
+        arm,
+        clearDeadline,
+        markReady,
+        setVisible,
+        get element() { return element; },
+        get source() { return element?.contentWindow ?? null; },
+        get ready() { return ready; },
+        get mounted() { return element !== null; },
+      };
+    }
+
+    function createDeck(ctx, contract) {
+      const { MESSAGE, SETTINGS_SCHEMA, readMessage, settingsMessage, snapshotMessage } = contract;
+      const root = document.documentElement;
+      const state = {
+        disposed: false,
+        revealed: false,
+        selectedSessionId: null,
+        lastSnapshot: null,
+        pollTimer: 0,
+        pollRequest: null,
+        pollGeneration: 0,
+      };
+
+      ensureStylesheet(UI_STYLE_ID, `${BASE}/deck-ui.css`);
+      for (const id of [DOCK_ID, BUTTON_ID, PANEL_ID, MILEAGE_ID]) {
+        document.getElementById(id)?.remove();
+      }
+
+      const settings = createSettingsStore(contract);
+      const locale = createLocaleLoader(ctx, FALLBACK_TEXT);
+      const skin = createSkin(root);
+      const mileage = createMileageLabel();
+      const text = () => locale.text;
+
+      let frame = null;
+      let panel = null;
+
+      const button = document.createElement('button');
+      button.id = BUTTON_ID;
+      button.type = 'button';
+      button.setAttribute('aria-controls', PANEL_ID);
+      button.setAttribute('aria-expanded', 'false');
+      button.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">'
+        + '<path d="M2 15c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>'
+        + '<path d="M2 19c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>'
+        + '<path d="M12 4v5"/><path d="M9.5 6.5 12 4l2.5 2.5"/></svg>';
+
+      const dock = document.createElement('div');
+      dock.id = DOCK_ID;
+
+      panel = createPanel({ contract, settings, getText: text });
+      frame = createFrameHost({
+        contract,
+        onLoad: () => postSettings(),
+        onReady: () => {
+          state.revealed = true;
+          applySkin();
+          renderMileage();
+        },
+        onError: (stage) => {
+          if (stage === 'timeout') console.warn('[ocean-background] renderer readiness timed out');
+          state.revealed = false;
+          skin.remove();
+          mileage.hide();
+          panel.setNoteVisible(true);
+        },
+      });
+
+      function applySkin() {
+        if (state.revealed && settings.current.enabled) skin.apply(settings.current.strength);
+        else skin.remove();
+      }
+
+      function renderMileage() {
+        const visible = state.revealed && settings.current.enabled && mileage.hasData();
+        mileage.render(text(), visible);
+      }
+
+      function refreshText() {
+        const copy = text();
+        button.title = copy.open;
+        button.setAttribute('aria-label', copy.open);
+        panel.refreshText();
+        renderMileage();
+      }
+
+      function postSettings() {
+        if (!frame.mounted) return;
+        frame.post(settingsMessage(settings.current, state.selectedSessionId));
+      }
+
+      function stopPoll() {
+        if (state.pollTimer !== 0) window.clearTimeout(state.pollTimer);
+        state.pollTimer = 0;
+        state.pollGeneration += 1;
+        try { state.pollRequest?.abort(); } catch {}
+        state.pollRequest = null;
+      }
+
+      function schedulePoll() {
+        if (state.disposed || document.hidden || !settings.current.enabled || state.pollTimer !== 0) return;
+        state.pollTimer = window.setTimeout(() => {
+          state.pollTimer = 0;
+          poll();
+        }, SNAPSHOT_MS);
+      }
+
+      function poll() {
+        if (state.disposed || document.hidden || !settings.current.enabled) return;
+        const mine = ++state.pollGeneration;
+        const sessionId = state.selectedSessionId;
+        const query = sessionId === null ? '' : `?sessionId=${encodeURIComponent(sessionId)}`;
+        const controller = new AbortController();
+        state.pollRequest = controller;
+        let pending;
+        try {
+          pending = Promise.resolve(fetch(`${BASE}/snapshot${query}`, { cache: 'no-store', signal: controller.signal }));
+        } catch {
+          schedulePoll();
+          return;
+        }
+        pending
+          .then((response) => (response && response.ok ? response.json() : null))
+          .then((data) => {
+            if (state.disposed || mine !== state.pollGeneration) return;
+            if (!data || data.ok === false) return;
+            state.lastSnapshot = data;
+            frame.post(snapshotMessage(data));
+            mileage.set(data.mileage);
+            renderMileage();
+          })
+          .catch(() => {})
+          .finally(() => {
+            if (state.pollRequest === controller) state.pollRequest = null;
+            schedulePoll();
+          });
+      }
+
+      function restartPoll() {
+        stopPoll();
+        poll();
+      }
+
+      function onFrameMessage(event) {
+        if (state.disposed || event.origin !== location.origin || event.source !== frame.source) return;
+        const payload = readMessage(event.data);
+        if (!payload) return;
+        if (payload.type === MESSAGE.ready) {
+          frame.markReady();
+          panel.setNoteVisible(false);
+          state.revealed = true;
+          applySkin();
+          postSettings();
+          if (state.lastSnapshot) frame.post(snapshotMessage(state.lastSnapshot));
+          renderMileage();
+          return;
+        }
+        if (payload.type === MESSAGE.error) {
+          console.warn('[ocean-background] renderer error', payload.stage, payload.message);
+          state.revealed = false;
+          skin.remove();
+          mileage.hide();
+          panel.setNoteVisible(true);
+        }
+      }
+
+      const sessions = ctx.sessions.list;
+      function currentSessionId() {
+        const selected = Object.values(sessions.getSnapshot().byId)
+          .filter((session) => session.retainedBy?.mainView > 0);
+        return selected.length === 1 ? selected[0].id : null;
+      }
+
+      let selectionQueued = false;
+      const stopSelection = sessions.subscribe(() => {
+        if (selectionQueued) return;
+        selectionQueued = true;
+        queueMicrotask(() => {
+          selectionQueued = false;
+          if (state.disposed) return;
+          const next = currentSessionId();
+          if (next === state.selectedSessionId) return;
+          state.selectedSessionId = next;
+          state.lastSnapshot = null;
+          mileage.clear();
+          postSettings();
+          restartPoll();
+        });
+      });
+
+      let wasEnabled = settings.current.enabled;
+      const onSettingsChange = () => {
+        applySkin();
+        panel.sync();
+        button.dataset.on = String(settings.current.enabled);
+        frame.setVisible(settings.current.enabled);
+        if (settings.current.enabled) {
+          if (!wasEnabled) restartPoll();
+          if (!frame.mounted) {
+            frame.mount();
+            frame.arm();
+          }
+          renderMileage();
+        } else {
+          stopPoll();
+          mileage.hide();
+        }
+        wasEnabled = settings.current.enabled;
+        postSettings();
+      };
+      const stopSettings = settings.subscribe(onSettingsChange);
+
+      const onLocaleChange = () => {
+        locale.load();
+        refreshText();
+      };
+      const stopLocale = typeof ctx.locale?.subscribe === 'function'
+        ? ctx.locale.subscribe(onLocaleChange)
+        : null;
+      const stopLocaleText = locale.subscribe(refreshText);
+
+      const onButtonClick = () => {
+        panel.element.hidden = !panel.element.hidden;
+        button.setAttribute('aria-expanded', String(!panel.element.hidden));
+      };
+      const closePanel = () => {
+        if (panel.element.hidden) return;
+        panel.element.hidden = true;
+        button.setAttribute('aria-expanded', 'false');
+      };
+      const onKeyDown = (event) => {
+        if (event.key !== 'Escape' || panel.element.hidden) return;
+        closePanel();
+        button.focus();
+      };
+      const onPointerDown = (event) => {
+        if (panel.element.hidden) return;
+        const target = event.target;
+        if (target instanceof Node && (panel.element.contains(target) || button.contains(target))) return;
+        closePanel();
+      };
+
+      const onVisibility = () => {
+        if (document.hidden) {
+          frame.clearDeadline();
+          stopPoll();
+        } else {
+          frame.mount();
+          frame.arm();
+          restartPoll();
+        }
+      };
+
+      function startPolling() {
+        poll();
+      }
+
+      button.addEventListener('click', onButtonClick);
+      document.addEventListener('keydown', onKeyDown);
+      document.addEventListener('pointerdown', onPointerDown);
+      document.addEventListener('visibilitychange', onVisibility);
+      window.addEventListener('message', onFrameMessage);
+
+      dock.appendChild(mileage.element);
+      dock.appendChild(button);
+      const host = document.body || document.documentElement;
+      host.appendChild(dock);
+      host.appendChild(panel.element);
+
+      state.selectedSessionId = currentSessionId();
+      locale.load();
+      panel.refreshText();
+      panel.sync();
+      button.title = text().open;
+      button.setAttribute('aria-label', text().open);
+      button.dataset.on = String(settings.current.enabled);
+      frame.mount();
+      frame.setVisible(settings.current.enabled);
+      applySkin();
+      startPolling();
+
+      return function teardown() {
+        state.disposed = true;
+        stopSettings();
+        stopLocale?.();
+        stopLocaleText();
+        stopSelection();
+        stopPoll();
+        window.removeEventListener('message', onFrameMessage);
+        document.removeEventListener('keydown', onKeyDown);
+        document.removeEventListener('pointerdown', onPointerDown);
+        document.removeEventListener('visibilitychange', onVisibility);
+        button.removeEventListener('click', onButtonClick);
+        settings.flush();
+        locale.dispose();
+        frame.unmount();
+        skin.remove();
+        button.remove();
+        panel.element.remove();
+        mileage.element.remove();
+        dock.remove();
+        document.getElementById(UI_STYLE_ID)?.remove();
+        document.getElementById(SHELL_STYLE_ID)?.remove();
+      };
+    }
+
+    function loadContract() {
+      return import(`${BASE}/protocol.js`);
     }
 
     return {
       inject: ['sessions', 'locale'],
       apply(ctx) {
-        try {
-          if (window.localStorage.getItem(KILL_KEY) === '1') return;
-          if (new URLSearchParams(location.search).get('ocean') === 'off') return;
-        } catch {}
-
         return ctx.effect(() => {
-          const state = { settings: readSettings(), sessionId: null, revealed: false, failed: false, disposed: false };
-          const activeLanguage = ctx.locale?.getSnapshot?.().active;
-          let text = messagesFor(activeLanguage || document.documentElement.lang || navigator.language);
-          let lastMileageData = null;
-          let frame = null;
-          let readyTimer = 0;
-          let noteEl = null;
+          let disposed = false;
+          let teardown = null;
+          try {
+            if (window.localStorage.getItem(KILL_KEY) === '1') return undefined;
+            if (new URLSearchParams(location.search).get('ocean') === 'off') return undefined;
+          } catch {}
 
-          const setNoteVisible = (visible) => {
-            if (noteEl) noteEl.hidden = !visible;
-          };
-
-          setStyle(UI_STYLE_ID, UI_CSS);
-
-          const mileageLabel = document.createElement('div');
-          mileageLabel.id = MILEAGE_ID;
-          mileageLabel.setAttribute('role', 'status');
-          mileageLabel.setAttribute('aria-live', 'polite');
-          mileageLabel.hidden = true;
-          let mileageTimer = 0;
-          let mileageGeneration = 0;
-          let mileageRequest = null;
-
-          const stopMileage = () => {
-            if (mileageTimer !== 0) window.clearTimeout(mileageTimer);
-            mileageTimer = 0;
-            mileageRequest?.abort();
-            mileageRequest = null;
-          };
-
-          const showMileage = () => {
-            mileageLabel.hidden = !(state.settings.enabled && state.revealed && mileageLabel.textContent !== '');
-          };
-
-          const applyMileage = (data) => {
-            if (!data || data.ok !== true) return;
-            const fleet = data.mode === 'fleet';
-            const meters = fleet ? data.fleetMeters : data.todayMeters;
-            if (typeof meters !== 'number' || !Number.isFinite(meters) || meters < 0) return;
-            lastMileageData = data;
-            const value = displayNauticalMiles(meters);
-            const next = `${fleet ? text.mileageFleet : text.mileageToday} ${value} ${text.mileageUnit}`;
-            if (next !== mileageLabel.textContent) mileageLabel.textContent = next;
-            showMileage();
-          };
-
-          const fetchMileage = () => {
-            if (state.disposed || document.hidden || !state.settings.enabled || !state.revealed || mileageRequest) return;
-            if (typeof fetch !== 'function') return;
-            const generation = mileageGeneration;
-            const sessionId = state.sessionId;
-            const query = sessionId === null ? '' : `?sessionId=${encodeURIComponent(sessionId)}`;
-            const request = new AbortController();
-            mileageRequest = request;
-            try {
-              Promise.resolve(fetch(`/ocean-background/mileage${query}`, { cache: 'no-store', signal: request.signal }))
-                .then((response) => (response && response.ok ? response.json() : null))
-                .then((data) => {
-                  if (state.disposed || !state.settings.enabled || mileageRequest !== request) return;
-                  if (generation !== mileageGeneration || sessionId !== state.sessionId) return;
-                  applyMileage(data);
-                })
-                .catch(() => {})
-                .finally(() => {
-                  if (mileageRequest === request) mileageRequest = null;
-                });
-            } catch {
-              if (mileageRequest === request) mileageRequest = null;
-            }
-          };
-
-          const scheduleMileage = () => {
-            if (state.disposed || document.hidden || !state.settings.enabled || !state.revealed || mileageTimer !== 0) return;
-            mileageTimer = window.setTimeout(() => {
-              mileageTimer = 0;
-              fetchMileage();
-              scheduleMileage();
-            }, MILEAGE_POLL_MS);
-          };
-
-          const post = () => {
-            frame?.contentWindow?.postMessage({
-              type: 'ocean-settings',
-              settings: { ...state.settings, sessionId: state.sessionId, visible: !document.hidden },
-            }, location.origin);
-          };
-
-          const clearDeadline = () => {
-            window.clearTimeout(readyTimer);
-            readyTimer = 0;
-          };
-
-          const unmountFrame = () => {
-            clearDeadline();
-            stopMileage();
-            frame?.remove();
-            frame = null;
-            state.revealed = false;
-            mileageLabel.hidden = true;
-            document.getElementById(SHELL_STYLE_ID)?.remove();
-          };
-
-          const armDeadline = () => {
-            if (!frame || state.revealed || document.hidden || readyTimer) return;
-            const pending = frame;
-            readyTimer = window.setTimeout(() => {
-              if (state.disposed || frame !== pending || state.revealed) return;
-              unmountFrame();
-              state.failed = true;
-              setNoteVisible(true);
-              console.warn('[ocean-background] renderer readiness timed out');
-            }, READY_TIMEOUT);
-          };
-
-          const mountFrame = () => {
-            if (frame || state.disposed || !state.settings.enabled || document.hidden) return;
-            state.failed = false;
-            setNoteVisible(false);
-            frame = document.createElement('iframe');
-            frame.id = FRAME_ID;
-            frame.setAttribute('aria-hidden', 'true');
-            frame.setAttribute('tabindex', '-1');
-            frame.title = 'Ocean background';
-            frame.style.cssText = 'position:fixed;inset:0;width:100%;height:100%;border:0;z-index:0;pointer-events:none;background:transparent;';
-            frame.addEventListener('load', post);
-            frame.src = `/ocean-background/?quality=${encodeURIComponent(state.settings.quality)}`;
-            const host = document.body || document.documentElement;
-            host.insertBefore(frame, host.firstChild);
-            armDeadline();
-          };
-
-          const onMessage = (event) => {
-            if (state.disposed || !frame || event.origin !== location.origin || event.source !== frame.contentWindow) return;
-            if (event.data?.type !== 'ocean-ready' || state.revealed) return;
-            state.revealed = true;
-            clearDeadline();
-            if (state.settings.enabled) setStyle(SHELL_STYLE_ID, shellCss(state.settings.strength));
-            showMileage();
-            fetchMileage();
-            scheduleMileage();
-          };
-          window.addEventListener('message', onMessage);
-
-          const onVisibility = () => {
-            if (document.hidden) {
-              clearDeadline();
-              stopMileage();
-            } else {
-              if (!state.failed) mountFrame();
-              armDeadline();
-              fetchMileage();
-              scheduleMileage();
-            }
-            post();
-          };
-          document.addEventListener('visibilitychange', onVisibility);
-
-          const button = document.createElement('button');
-          button.id = BUTTON_ID;
-          button.type = 'button';
-          button.title = text.open;
-          button.setAttribute('aria-label', text.open);
-          button.setAttribute('aria-controls', PANEL_ID);
-          button.innerHTML = '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">'
-            + '<path d="M2 15c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>'
-            + '<path d="M2 19c2.5 0 2.5-2 5-2s2.5 2 5 2 2.5-2 5-2 2.5 2 5 2"/>'
-            + '<path d="M12 4v5"/><path d="M9.5 6.5 12 4l2.5 2.5"/></svg>';
-
-          const panel = document.createElement('div');
-          panel.id = PANEL_ID;
-          panel.setAttribute('role', 'dialog');
-          panel.setAttribute('aria-label', text.open);
-          panel.hidden = true;
-          panel.innerHTML = ''
-            + `<p class="ob-title" data-i18n="open"></p>`
-            + `<div class="ob-row"><label for="ob-enabled" data-i18n="show"></label><input id="ob-enabled" type="checkbox"></div>`
-            + `<div><div class="ob-row"><label for="ob-strength" data-i18n="strength"></label><output id="ob-strength-out"></output></div>`
-            + `<input id="ob-strength" type="range" min="35" max="95" step="1"></div>`
-            + `<div class="ob-row"><label for="ob-running" data-i18n="running"></label><input id="ob-running" type="checkbox"></div>`
-            + `<div class="ob-row"><label for="ob-quality" data-i18n="quality"></label><select id="ob-quality">`
-            + `<option value="balanced" data-i18n="balanced"></option><option value="high" data-i18n="high"></option></select></div>`
-            + Object.entries(CAMERA_LIMITS).map(([key, limits]) =>
-              `<div><div class="ob-row"><label for="ob-${key}" data-i18n="${key}"></label><output id="ob-${key}-out" for="ob-${key}"></output></div>`
-              + `<input id="ob-${key}" type="range" min="${limits.min}" max="${limits.max}" step="${limits.step}"></div>`
-            ).join('')
-            + `<p class="ob-note" data-i18n="cameraHint"></p>`
-            + `<p class="ob-note" id="ob-note" data-i18n="recovering" hidden></p>`;
-
-          const enabledInput = panel.querySelector('#ob-enabled');
-          const strengthInput = panel.querySelector('#ob-strength');
-          const strengthOut = panel.querySelector('#ob-strength-out');
-          const runningInput = panel.querySelector('#ob-running');
-          const qualitySelect = panel.querySelector('#ob-quality');
-          noteEl = panel.querySelector('#ob-note');
-
-          const syncControls = () => {
-            enabledInput.checked = state.settings.enabled;
-            strengthInput.value = String(Math.round(state.settings.strength * 100));
-            strengthOut.textContent = Math.round(state.settings.strength * 100) + '%';
-            runningInput.checked = state.settings.running;
-            qualitySelect.value = state.settings.quality;
-            for (const key of Object.keys(CAMERA_LIMITS)) {
-              panel.querySelector(`#ob-${key}`).value = String(state.settings[key]);
-              panel.querySelector(`#ob-${key}-out`).textContent = state.settings[key].toFixed(CAMERA_LIMITS[key].step === 1 ? 0 : 1)
-                + (key === 'cameraPitch' ? '°' : '');
-            }
-            button.dataset.on = String(state.settings.enabled);
-          };
-
-          const refreshLanguage = () => {
-            const active = ctx.locale?.getSnapshot?.().active;
-            text = messagesFor(active || document.documentElement.lang || navigator.language);
-            button.title = text.open;
-            button.setAttribute('aria-label', text.open);
-            panel.setAttribute('aria-label', text.open);
-            for (const node of panel.querySelectorAll('[data-i18n]')) {
-              const key = node.getAttribute('data-i18n');
-              if (key && typeof text[key] === 'string') node.textContent = text[key];
-            }
-            if (lastMileageData) applyMileage(lastMileageData);
-          };
-          refreshLanguage();
-
-          const stopLocale = typeof ctx.locale?.subscribe === 'function'
-            ? ctx.locale.subscribe(refreshLanguage)
-            : null;
-
-          const applySettings = (patch) => {
-            const qualityChanged = patch.quality !== undefined && patch.quality !== state.settings.quality;
-            state.settings = { ...state.settings, ...patch };
-            writeSettings(state.settings);
-            syncControls();
-            if (!state.settings.enabled || qualityChanged) unmountFrame();
-            if (!state.settings.enabled) {
-              setNoteVisible(false);
-              stopMileage();
-              mileageLabel.hidden = true;
-            } else {
-              showMileage();
-              fetchMileage();
-              scheduleMileage();
-            }
-            mountFrame();
-            if (state.revealed) setStyle(SHELL_STYLE_ID, shellCss(state.settings.strength));
-            post();
-          };
-
-          enabledInput.addEventListener('change', () => applySettings({ enabled: enabledInput.checked }));
-          strengthInput.addEventListener('input', () => applySettings({ strength: Number(strengthInput.value) / 100 }));
-          runningInput.addEventListener('change', () => applySettings({ running: runningInput.checked }));
-          qualitySelect.addEventListener('change', () => applySettings({ quality: qualitySelect.value }));
-          for (const key of Object.keys(CAMERA_LIMITS)) {
-            const input = panel.querySelector(`#ob-${key}`);
-            input.addEventListener('input', () => applySettings({ [key]: cameraValue(key, Number(input.value)) }));
-          }
-
-          button.addEventListener('click', () => {
-            panel.hidden = !panel.hidden;
-            button.setAttribute('aria-expanded', String(!panel.hidden));
-          });
-
-          button.setAttribute('aria-expanded', 'false');
-          const onKeyDown = (event) => {
-            if (event.key !== 'Escape' || panel.hidden) return;
-            panel.hidden = true;
-            button.setAttribute('aria-expanded', 'false');
-            button.focus();
-          };
-          const onPointerDown = (event) => {
-            if (panel.hidden) return;
-            const target = event.target;
-            if (target instanceof Node && (panel.contains(target) || button.contains(target))) return;
-            panel.hidden = true;
-            button.setAttribute('aria-expanded', 'false');
-          };
-          document.addEventListener('keydown', onKeyDown);
-          document.addEventListener('pointerdown', onPointerDown);
-          for (const id of [DOCK_ID, BUTTON_ID, PANEL_ID, MILEAGE_ID]) {
-            document.getElementById(id)?.remove();
-          }
-          const dock = document.createElement('div');
-          dock.id = DOCK_ID;
-          dock.appendChild(mileageLabel);
-          dock.appendChild(button);
-          document.body.appendChild(dock);
-          document.body.appendChild(panel);
-          syncControls();
-
-          const sessions = ctx.sessions.list;
-          let selectionQueued = false;
-          const syncSelection = () => {
-            if (state.disposed) return;
-            const selected = Object.values(sessions.getSnapshot().byId)
-              .filter((session) => session.retainedBy?.mainView > 0);
-            const sessionId = selected.length === 1 ? selected[0].id : null;
-            if (sessionId === state.sessionId) return;
-            stopMileage();
-            state.sessionId = sessionId;
-            mileageGeneration += 1;
-            lastMileageData = null;
-            mileageLabel.textContent = '';
-            showMileage();
-            post();
-            fetchMileage();
-            scheduleMileage();
-          };
-          const stopSelection = sessions.subscribe(() => {
-            if (selectionQueued) return;
-            selectionQueued = true;
-            queueMicrotask(() => {
-              selectionQueued = false;
-              syncSelection();
+          loadContract()
+            .then((contract) => {
+              if (disposed) return;
+              teardown = createDeck(ctx, contract);
+            })
+            .catch((error) => {
+              console.warn('[ocean-background] contract unavailable', error);
             });
-          });
-          syncSelection();
-          mountFrame();
 
           return () => {
-            state.disposed = true;
-            stopSelection();
-            stopMileage();
-            stopLocale?.();
-            window.removeEventListener('message', onMessage);
-            document.removeEventListener('visibilitychange', onVisibility);
-            document.removeEventListener('keydown', onKeyDown);
-            document.removeEventListener('pointerdown', onPointerDown);
-            unmountFrame();
-            button.remove();
-            panel.remove();
-            mileageLabel.remove();
-            dock.remove();
-            document.getElementById(UI_STYLE_ID)?.remove();
+            disposed = true;
+            try { teardown?.(); } catch {}
+            teardown = null;
           };
         }, 'ocean-background: mount');
       },
     };
   },
 });
-

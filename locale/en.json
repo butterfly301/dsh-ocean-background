@@ -2,5 +2,23 @@
   "meta": {
     "title": "Ocean background",
     "description": "A daytime sea behind the whole Harness window: a pirate ship that keeps sailing right for the main agent, a dinghy for every subagent, sail state showing whether the agent is working, and waves that rise with token throughput."
+  },
+  "ui": {
+    "open": "Ocean settings",
+    "show": "Show ocean",
+    "strength": "Strength",
+    "running": "Playing",
+    "quality": "Quality",
+    "balanced": "Balanced",
+    "high": "High",
+    "cameraDistance": "Camera distance",
+    "cameraHeight": "Camera height",
+    "cameraPitch": "Camera pitch",
+    "cameraXOffset": "Camera horizontal offset",
+    "cameraHint": "Horizontal offset: negative left, positive right; limit 8. Pitch: negative looks up, positive looks down.",
+    "recovering": "Sea not ready, interface untouched",
+    "mileageToday": "Sailed today",
+    "mileageFleet": "Sailed",
+    "mileageUnit": "nm"
   }
 }

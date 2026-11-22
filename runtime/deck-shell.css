@@ -1,0 +1,68 @@
+body {
+  background: transparent !important;
+}
+body #root {
+  --dsw-alias-bg-base: rgba(255, 255, 255, var(--ob-light)) !important;
+  --dsw-alias-bg-layer-1: rgba(255, 255, 255, var(--ob-light)) !important;
+  --dsw-alias-bg-layer-2: rgba(255, 255, 255, var(--ob-light)) !important;
+  --dsw-alias-bg-layer-3: rgba(255, 255, 255, var(--ob-light)) !important;
+  --dsw-alias-bg-module-platform: rgba(245, 246, 247, var(--ob-light-hi)) !important;
+  --dsw-alias-bg-multi-select: rgba(245, 246, 247, var(--ob-light-hi)) !important;
+  --dsw-alias-bg-overlay: rgba(233, 236, 242, .97) !important;
+  --dsw-specific-sidebar-fill: rgba(249, 250, 251, var(--ob-light-lo)) !important;
+  --dsw-specific-selector: rgba(245, 246, 247, var(--ob-light-hi)) !important;
+}
+body[data-ds-dark-theme] #root {
+  --dsw-alias-bg-base: rgba(9, 12, 16, var(--ob-dark)) !important;
+  --dsw-alias-bg-layer-1: rgba(12, 16, 22, var(--ob-dark)) !important;
+  --dsw-alias-bg-layer-2: rgba(16, 20, 27, var(--ob-dark)) !important;
+  --dsw-alias-bg-layer-3: rgba(20, 25, 33, var(--ob-dark)) !important;
+  --dsw-alias-bg-module-platform: rgba(13, 17, 23, var(--ob-dark-hi)) !important;
+  --dsw-alias-bg-multi-select: rgba(13, 17, 23, var(--ob-dark-hi)) !important;
+  --dsw-alias-bg-overlay: rgba(18, 22, 30, .97) !important;
+  --dsw-specific-sidebar-fill: rgba(11, 15, 21, var(--ob-dark-lo)) !important;
+  --dsw-specific-selector: rgba(13, 17, 23, var(--ob-dark-hi)) !important;
+}
+html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) {
+  background: var(--dsw-alias-bg-base) !important;
+}
+body #root [data-composer-seat] {
+  background: none !important;
+}
+body #root [data-composer-seat] {
+  --dsw-alias-bg-base: rgba(255, 255, 255, 0.55) !important;
+  --dsw-alias-bg-layer-1: rgba(255, 255, 255, 0.55) !important;
+  --dsw-alias-bg-layer-2: rgba(255, 255, 255, 0.55) !important;
+  --dsw-alias-bg-layer-3: rgba(255, 255, 255, 0.55) !important;
+  --dsw-specific-input-major: rgba(255, 255, 255, 0.55) !important;
+}
+body[data-ds-dark-theme] #root [data-composer-seat] {
+  --dsw-alias-bg-base: rgba(26, 30, 37, 0.55) !important;
+  --dsw-alias-bg-layer-1: rgba(26, 30, 37, 0.55) !important;
+  --dsw-alias-bg-layer-2: rgba(26, 30, 37, 0.55) !important;
+  --dsw-alias-bg-layer-3: rgba(26, 30, 37, 0.55) !important;
+  --dsw-specific-input-major: rgba(26, 30, 37, 0.55) !important;
+}
+body #root [data-slot="sidebar"] {
+  --dsw-specific-sidebar-fill: transparent !important;
+}
+html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) > :is(:first-child, :nth-child(2), [data-rightbar-col], [data-shell-bottom]),
+html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) > :nth-child(2) [data-phase],
+html:is([data-platform="darwin"], [data-windows-titlebar]) body #root [data-rightbar-col] [data-dockkit-host="dock"] > [data-dockkit-content] {
+  background: transparent !important;
+}
+html[data-windows-titlebar] body #root div:has(> [data-shell-overlay])::before {
+  background: transparent !important;
+}
+body [data-slot="main.conversation"] {
+  --dsw-specific-input-major: var(--dsw-alias-bg-layer-1) !important;
+  --dsw-specific-bubble: var(--dsw-alias-bg-layer-2) !important;
+  --dsw-alias-markdown-code-block: var(--dsw-alias-bg-layer-1) !important;
+  --dsw-alias-markdown-code-block-banner: var(--dsw-alias-bg-layer-2) !important;
+}
+body :is([data-shortcut-modal="settings"], [role="dialog"], [role="alertdialog"]):not(#ocean-background-panel) {
+  background: rgba(250, 251, 253, .97) !important;
+}
+body[data-ds-dark-theme] :is([data-shortcut-modal="settings"], [role="dialog"], [role="alertdialog"]):not(#ocean-background-panel) {
+  background: rgba(24, 28, 35, .97) !important;
+}

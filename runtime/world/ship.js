@@ -161,8 +161,18 @@ export function prepareShip(gltf) {
   const cx = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3()).x;
   for (const mesh of sails) bakeFurl(mesh, cx);
 
+  const hullHeight = scaled.max.y - scaled.min.y;
+  const draft = TARGET_LENGTH * DRAFT_RATIO;
+  const halfLength = (scaled.max.x - scaled.min.x) / 2;
+  const deckY = hullHeight - draft;
+  const anchors = {
+    stern: new THREE.Vector3(-halfLength * 0.92, deckY + 0.25, 0),
+    mast: new THREE.Vector3(0, deckY + TARGET_LENGTH * 0.45, 0),
+  };
+
   return {
     pivot,
+    anchors,
     setFurl(amount01) {
       const a = THREE.MathUtils.clamp(amount01, 0, 1);
       for (const mesh of sails) {

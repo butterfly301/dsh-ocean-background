@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { SKY_GLSL, NOISE_GLSL } from './glsl.js';
-import { OCEAN_WAVE_GLSL } from './wave-field.js';
+import { OCEAN_WAVE_GLSL } from './wave-glsl.js';
 
 // The water is a single plane whose height comes from the shared swell field.
 // Every other feature lives in the fragment shader: fine ripple normals,
@@ -182,10 +182,14 @@ void main() {
 }
 `;
 
-export function createOcean(uniforms, { size = 1200, segments = 240 } = {}) {
-  const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
-  geometry.rotateX(-Math.PI / 2);
+export function createOcean(uniforms, { size = 1200, segments = 300 } = {}) {
+  const buildGeometry = (nextSegments) => {
+    const geometry = new THREE.PlaneGeometry(size, size, nextSegments, nextSegments);
+    geometry.rotateX(-Math.PI / 2);
+    return geometry;
+  };
 
+  const geometry = buildGeometry(segments);
   const material = new THREE.ShaderMaterial({
     uniforms,
     vertexShader,
@@ -196,5 +200,13 @@ export function createOcean(uniforms, { size = 1200, segments = 240 } = {}) {
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
   mesh.name = 'ocean';
+  mesh.setSegments = (nextSegments) => {
+    const target = Math.max(32, Math.floor(nextSegments));
+    if (!Number.isFinite(target) || target === mesh.geometry.parameters?.widthSegments) return;
+    const previous = mesh.geometry;
+    mesh.geometry = buildGeometry(target);
+    previous.dispose();
+  };
   return mesh;
 }
+

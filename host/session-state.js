@@ -1,4 +1,4 @@
-import { STATUS, sumBuckets, createFoldState, foldSessionFacts, statusOfFacts } from './session-facts.js'
+import { createFoldState, foldSessionFacts } from './session-facts.js'
 
 const SUBAGENT_ORIGIN = 'subagent'
 const MAX_ANCESTRY_DEPTH = 64
@@ -229,24 +229,6 @@ export async function resolveMileageTarget(ctx, ledger, selected, signal) {
   return { rootId, eligible: isMeteringEligible(facts, ledger.hasForkRoot(rootId)) }
 }
 
-function rowIdOf(row) {
-  const id = row?.id ?? row?.sessionId ?? row?.childId
-  return typeof id === 'string' && id !== '' ? id : null
-}
-
-function rowTitleOf(row) {
-  const name = typeof row?.name === 'string' ? row.name : ''
-  if (name !== '') return name
-  const label = typeof row?.label === 'string' ? row.label : ''
-  return label
-}
-
-function childRow(id, status, title) {
-  const row = { id, running: status === STATUS.working, status }
-  if (title !== '') row.title = title
-  return row
-}
-
 export async function listFleetRows(ctx, rootId, signal) {
   const subagents = readService(ctx, 'subagents')
   if (!subagents || typeof subagents.listDescendants !== 'function') {
@@ -257,83 +239,3 @@ export async function listFleetRows(ctx, rootId, signal) {
   if (!Array.isArray(listed)) throw new Error('subagent listing returned no rows')
   return listed
 }
-
-export function emptySnapshot() {
-  return {
-    ok: true,
-    sessionId: null,
-    tokensComplete: true,
-    totalTokens: 0,
-    flowTokens: 0,
-    agentRunning: false,
-    children: [],
-  }
-}
-
-export async function sessionSnapshot(ctx, sessionId, signal) {
-  if (typeof sessionId !== 'string' || sessionId.trim() === '') return emptySnapshot()
-  const selected = sessionId.trim()
-  pruneCache(ctx, Date.now())
-  const rootId = await resolveRootSessionId(ctx, selected, signal)
-  const rootFacts = await readSessionFacts(ctx, rootId, signal)
-  if (rootFacts === null) throw new Error(`session "${rootId}" could not be read`)
-
-  const rows = await listFleetRows(ctx, rootId, signal)
-  const seen = new Set([rootId])
-  const children = []
-  let total = sumBuckets(rootFacts.buckets)
-  let complete = true
-  for (const row of rows) {
-    const id = rowIdOf(row)
-    if (id === null || seen.has(id)) continue
-    seen.add(id)
-    const title = rowTitleOf(row)
-    if (row?.kind === 'diagnostic' || row?.mode === 'external') {
-      complete = false
-      children.push(childRow(id, STATUS.unavailable, title))
-      continue
-    }
-    const facts = await readSessionFacts(ctx, id, signal)
-    if (facts === null) complete = false
-    else total += sumBuckets(facts.buckets)
-    children.push(childRow(id, statusOfFacts(facts, row?.mode), title))
-  }
-
-  const agentRunning = rootFacts.turnOpen === true
-  if (!complete) {
-    return {
-      ok: true,
-      sessionId: rootId,
-      tokensComplete: false,
-      totalTokens: null,
-      flowTokens: null,
-      agentRunning,
-      children,
-    }
-  }
-  const tokens = Math.max(0, total)
-  return {
-    ok: true,
-    sessionId: rootId,
-    tokensComplete: true,
-    totalTokens: tokens,
-    flowTokens: tokens,
-    agentRunning,
-    children,
-  }
-}
-
-export function debugPayload(ctx, selected) {
-  const { sessionCache, headerCache } = stateOf(ctx)
-  return {
-    selected: typeof selected === 'string' && selected !== '' ? selected : null,
-    services: {
-      sessions: Boolean(readService(ctx, 'sessions')),
-      sessionQuery: Boolean(readService(ctx, 'sessionQuery')),
-      subagents: Boolean(readService(ctx, 'subagents')),
-      agents: Boolean(readService(ctx, 'agents')),
-    },
-    cache: { sessions: sessionCache.size, headers: headerCache.size },
-  }
-}
-

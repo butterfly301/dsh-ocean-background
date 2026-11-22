@@ -2,5 +2,23 @@
   "meta": {
     "title": "海洋背景",
     "description": "整个 Harness 窗口后方的日间海面：代表主 Agent 的海盗船持续向右航行，每个子 Agent 对应一艘小艇，帆态表示是否在工作，海浪随 token 吞吐起伏。"
+  },
+  "ui": {
+    "open": "海景设置",
+    "show": "显示海面",
+    "strength": "背景强度",
+    "running": "播放",
+    "quality": "画质",
+    "balanced": "均衡",
+    "high": "高",
+    "cameraDistance": "摄像机距离",
+    "cameraHeight": "摄像机高度",
+    "cameraPitch": "摄像机俯仰角",
+    "cameraXOffset": "镜头左右偏移",
+    "cameraHint": "左右偏移：负值向左，正值向右，上限 8。俯仰角：负值向上，正值向下。",
+    "recovering": "海面未就绪，界面保持原样",
+    "mileageToday": "今日已航行",
+    "mileageFleet": "目前已航行",
+    "mileageUnit": "海里"
   }
 }

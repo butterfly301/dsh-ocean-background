@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Fond océanique",
+    "description": "Une mer de jour derrière toute la fenêtre Harness : un navire pirate qui avance vers la droite pour l'agent principal, un canot par sous-agent, l'état des voiles indiquant le travail, et des vagues qui montent avec le débit de tokens."
+  },
+  "ui": {
+    "open": "Réglages océan",
+    "show": "Afficher l’océan",
+    "strength": "Opacité",
+    "running": "Lecture",
+    "quality": "Qualité",
+    "balanced": "Équilibrée",
+    "high": "Haute",
+    "cameraDistance": "Distance caméra",
+    "cameraHeight": "Hauteur caméra",
+    "cameraPitch": "Inclinaison",
+    "cameraXOffset": "Décalage horizontal",
+    "cameraHint": "Décalage : négatif à gauche, positif à droite, limite 8. Inclinaison : négatif vers le haut, positif vers le bas.",
+    "recovering": "Océan indisponible, interface inchangée",
+    "mileageToday": "Parcouru aujourd’hui",
+    "mileageFleet": "Parcouru",
+    "mileageUnit": "M"
+  }
+}

@@ -1,4 +1,4 @@
-import { readService, notifyOnce, logOnce, describeError, resolveMileageTarget } from './session-state.js'
+import { readService, notifyOnce, logOnce, describeError, resolveMileageTarget } from '../session-state.js'
 
 const FORK_OWNER = Symbol.for('ocean-background.fork-snapshot')
 const SNAPSHOT_TIMEOUT_MS = 4000

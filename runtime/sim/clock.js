@@ -1,21 +1,6 @@
-
 export const MAX_FRAME_DELTA = 0.25;
 
 const CADENCE_EPSILON_MS = 2;
-
-export function targetFpsForQuality(quality) {
-  return quality === 'high' ? 60 : 30;
-}
-
-export function shouldAnimate({ booted, enabled, visible, running, hidden }) {
-  return Boolean(booted && enabled && visible && running && !hidden);
-}
-
-export function owesStillFrame({
-  booted, enabled, visible, running, hidden, stillFrameNeeded,
-}) {
-  return Boolean(booted && enabled && visible && !running && !hidden && stillFrameNeeded);
-}
 
 function normalizeTarget(targetFps) {
   const value = Number(targetFps);

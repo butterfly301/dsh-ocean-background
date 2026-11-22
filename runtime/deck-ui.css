@@ -1,0 +1,57 @@
+#ocean-background-dock {
+  position: fixed; right: 14px; bottom: 12px; z-index: 6000;
+  display: flex; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+#ocean-background-button {
+  flex: none;
+  width: 30px; height: 30px; padding: 0; border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; opacity: .8; pointer-events: auto;
+  border: 1px solid rgba(120, 170, 190, .38);
+  background: rgba(16, 40, 50, .55);
+  color: #e8f6fb;
+  backdrop-filter: blur(8px) saturate(130%);
+  transition: opacity .16s ease, background .16s ease, border-color .16s ease;
+}
+#ocean-background-button:hover, #ocean-background-button:focus-visible {
+  opacity: 1; background: rgba(20, 54, 66, .8); border-color: rgba(160, 220, 235, .65);
+}
+#ocean-background-button[data-on="false"] { color: #c9d6da; border-color: rgba(150, 170, 180, .34); }
+#ocean-background-mileage {
+  flex: none;
+  height: 30px; display: flex; align-items: center;
+  box-sizing: border-box;
+  font: 600 12px/1 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #082c36; white-space: nowrap;
+  text-shadow: 0 0 2px #fff, 0 0 2px #fff, 0 0 4px rgba(255, 255, 255, .95), 0 1px 2px rgba(255, 255, 255, .9);
+  pointer-events: none; user-select: none;
+}
+#ocean-background-mileage[hidden] { display: none; }
+body[data-ds-dark-theme] #ocean-background-mileage {
+  color: #f2fafd;
+  text-shadow: 0 0 2px rgba(0, 0, 0, .95), 0 0 2px rgba(0, 0, 0, .9), 0 1px 3px rgba(0, 0, 0, .85);
+}
+#ocean-background-panel {
+  position: fixed; right: 14px; bottom: 50px; z-index: 6001;
+  width: 240px; padding: 13px 14px 14px; border-radius: 12px;
+  max-height: calc(100dvh - 80px); overflow-y: auto;
+  background: rgba(248, 251, 252, .97);
+  border: 1px solid rgba(20, 60, 75, .16);
+  box-shadow: 0 12px 32px rgba(9, 32, 40, .22);
+  font: 12px/1.55 system-ui, -apple-system, "Segoe UI", sans-serif;
+  color: #16333d;
+}
+body[data-ds-dark-theme] #ocean-background-panel {
+  background: rgba(20, 27, 33, .97);
+  border-color: rgba(160, 200, 215, .22);
+  color: #e2eef2;
+}
+#ocean-background-panel[hidden] { display: none; }
+#ocean-background-panel .ob-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0 0; }
+#ocean-background-panel .ob-row:first-child { margin-top: 0; }
+#ocean-background-panel .ob-title { font-weight: 600; margin: 0 0 6px; }
+#ocean-background-panel .ob-note { margin: 8px 0 0; opacity: .7; font-size: 11px; }
+#ocean-background-panel input[type="range"] { width: 100%; margin: 6px 0 0; }
+#ocean-background-panel select { font: inherit; padding: 2px 6px; border-radius: 6px; }
+#ocean-background-panel label { display: block; }

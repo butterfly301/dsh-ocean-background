@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Fundo oceânico",
+    "description": "Um mar diurno atrás de toda a janela Harness: um navio pirata navegando para a direita para o agente principal, um bote por subagente, o estado das velas indica o trabalho e as ondas sobem com a vazão de tokens."
+  },
+  "ui": {
+    "open": "Ajustes do oceano",
+    "show": "Mostrar oceano",
+    "strength": "Intensidade",
+    "running": "Reproduzindo",
+    "quality": "Qualidade",
+    "balanced": "Equilibrada",
+    "high": "Alta",
+    "cameraDistance": "Distância da câmera",
+    "cameraHeight": "Altura da câmera",
+    "cameraPitch": "Inclinação",
+    "cameraXOffset": "Deslocamento horizontal",
+    "cameraHint": "Deslocamento: negativo à esquerda, positivo à direita, limite 8. Inclinação: negativo para cima, positivo para baixo.",
+    "recovering": "Oceano indisponível, interface inalterada",
+    "mileageToday": "Navegado hoje",
+    "mileageFleet": "Navegado",
+    "mileageUnit": "mn"
+  }
+}

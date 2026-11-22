@@ -1,0 +1,24 @@
+{
+  "meta": {
+    "title": "Meeres-Hintergrund",
+    "description": "Eine Tagessee hinter dem gesamten Harness-Fenster: ein Piratenschiff, das für den Haupt-Agenten nach rechts segelt, ein Beiboot pro Subagent, der Segelzustand zeigt die Arbeit und die Wellen steigen mit dem Token-Durchsatz."
+  },
+  "ui": {
+    "open": "Meeres-Einstellungen",
+    "show": "Meer anzeigen",
+    "strength": "Deckkraft",
+    "running": "Aktiv",
+    "quality": "Qualität",
+    "balanced": "Ausgewogen",
+    "high": "Hoch",
+    "cameraDistance": "Kameraabstand",
+    "cameraHeight": "Kamerahöhe",
+    "cameraPitch": "Kameraneigung",
+    "cameraXOffset": "Seitlicher Versatz",
+    "cameraHint": "Versatz: negativ links, positiv rechts, Limit 8. Neigung: negativ nach oben, positiv nach unten.",
+    "recovering": "Meer nicht bereit, Oberfläche unverändert",
+    "mileageToday": "Heute gesegelt",
+    "mileageFleet": "Gesegelt",
+    "mileageUnit": "sm"
+  }
+}
