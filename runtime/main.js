@@ -592,24 +592,26 @@ function advance(seconds, step = 0.05) {
   }
 }
 
-window.__ocean = {
-  advance,
-  uniforms,
-  dispose,
-  applySettings,
-  setRunning: (value) => applySettings({ running: value }),
-  setSession: (sessionId) => applySettings({ sessionId }),
-  get settings() { return { ...settings }; },
-  get seaState() { return seaState; },
-  get scene() { return scene; },
-  get camera() { return camera; },
-  get renderer() { return renderer; },
-  get booted() { return booted; },
-  get announced() { return announced; },
-  get travelX() { return travelX; },
-  // Read-only handles for verification: neither state has another way to be
-  // inspected without a live agent driving it.
-  get ship() { return ship; },
-  get fleet() { return fleet; },
-  get voyage() { return voyage; },
-};
+if (!EMBEDDED || params.get('debug') === '1') {
+  window.__ocean = {
+    advance,
+    uniforms,
+    dispose,
+    applySettings,
+    setRunning: (value) => applySettings({ running: value }),
+    setSession: (sessionId) => applySettings({ sessionId }),
+    get settings() { return { ...settings }; },
+    get seaState() { return seaState; },
+    get scene() { return scene; },
+    get camera() { return camera; },
+    get renderer() { return renderer; },
+    get booted() { return booted; },
+    get announced() { return announced; },
+    get travelX() { return travelX; },
+    // Read-only handles for verification: neither state has another way to be
+    // inspected without a live agent driving it.
+    get ship() { return ship; },
+    get fleet() { return fleet; },
+    get voyage() { return voyage; },
+  };
+}

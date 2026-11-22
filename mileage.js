@@ -1,4 +1,4 @@
-import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, rename, unlink, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 export const METERS_PER_NM = 1852
@@ -141,12 +141,18 @@ export function createMileageLedger({ dir = null, now = Date.now, writeDelayMs =
     const body = JSON.stringify(serialize(), null, 2)
     writing = writing.then(async () => {
       await mkdir(dir, { recursive: true })
-      const temp = join(dir, `.${FILE}.${process.pid}.tmp`)
-      await writeFile(temp, body, 'utf8')
-      await rename(temp, join(dir, FILE))
+      const temp = join(dir, `.${FILE}.${process.pid}.${Date.now()}.tmp`)
+      try {
+        await writeFile(temp, body, 'utf8')
+        await rename(temp, join(dir, FILE))
+      } catch (error) {
+        await unlink(temp).catch(() => {})
+        throw error
+      }
     }).catch((error) => {
       dirty = true
       warn(error)
+      if (!closed) scheduleSave()
     })
     return writing
   }

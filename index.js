@@ -234,7 +234,7 @@ async function serveAsset(req, res) {
       finish(res, 404)
       return
     }
-    throw error
+    finish(res, 500)
   }
 }
 

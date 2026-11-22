@@ -1,6 +1,6 @@
 {
   "name": "dsh-ocean-background",
-  "version": "0.1.6",
+  "version": "0.1.7",
   "type": "module",
   "description": "A daytime sea behind the whole Harness window: a pirate ship for the main agent, a rowboat for every subagent, canvas that follows activity, and waves driven by token throughput.",
   "license": "MIT",
@@ -8,11 +8,30 @@
     "type": "git",
     "url": "git+https://github.com/butterfly301/dsh-ocean-background.git"
   },
+  "homepage": "https://github.com/butterfly301/dsh-ocean-background#readme",
+  "bugs": {
+    "url": "https://github.com/butterfly301/dsh-ocean-background/issues"
+  },
+  "keywords": [
+    "deepseek-harness",
+    "dsh",
+    "dsh-plugin",
+    "ocean",
+    "background",
+    "threejs"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.5 <0.3.0"
+  },
   "exports": {
     ".": "./index.js",
     "./client": "./client.js",
     "./locale/*.json": "./locale/*.json",
-    "./icon": "./icon.svg"
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
   },
   "files": [
     "index.js",
@@ -22,7 +41,9 @@
     "runtime",
     "locale/*.json",
     "icon.svg",
-    "preview.png"
+    "preview.png",
+    "README.md",
+    "LICENSE"
   ],
   "dsh": {
     "client": {

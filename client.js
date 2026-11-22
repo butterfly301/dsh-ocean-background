@@ -42,6 +42,12 @@ window.__ModuleLoader__.load({
     const MESSAGES = {
       zh: { open: '海景设置', show: '显示海面', strength: '背景强度', running: '播放', quality: '画质', balanced: '均衡', high: '高', cameraDistance: '摄像机距离', cameraHeight: '摄像机高度', cameraPitch: '摄像机俯仰角', cameraXOffset: '镜头左右偏移', cameraHint: '左右偏移：负值向左，正值向右，上限 8。俯仰角：负值向上，正值向下。', recovering: '海面未就绪，界面保持原样', mileageToday: '今日已航行', mileageFleet: '目前已航行', mileageUnit: '海里' },
       en: { open: 'Ocean settings', show: 'Show ocean', strength: 'Strength', running: 'Playing', quality: 'Quality', balanced: 'Balanced', high: 'High', cameraDistance: 'Camera distance', cameraHeight: 'Camera height', cameraPitch: 'Camera pitch', cameraXOffset: 'Camera horizontal offset', cameraHint: 'Horizontal offset: negative left, positive right; limit 8. Pitch: negative looks up, positive looks down.', recovering: 'Sea not ready, interface untouched', mileageToday: 'Sailed today', mileageFleet: 'Sailed', mileageUnit: 'nm' },
+      ja: { open: '海景設定', show: '海面を表示', strength: '背景の強さ', running: '再生', quality: '画質', balanced: 'バランス', high: '高', cameraDistance: 'カメラ距離', cameraHeight: 'カメラ高さ', cameraPitch: 'カメラ仰角', cameraXOffset: 'カメラ左右オフセット', cameraHint: '左右オフセット：負で左、正で右、上限 8。仰角：負で上向き、正で下向き。', recovering: '海面の準備ができていません', mileageToday: '本日の航行', mileageFleet: '累計航行', mileageUnit: '海里' },
+      es: { open: 'Ajustes del mar', show: 'Mostrar mar', strength: 'Intensidad', running: 'Reproduciendo', quality: 'Calidad', balanced: 'Equilibrada', high: 'Alta', cameraDistance: 'Distancia de cámara', cameraHeight: 'Altura de cámara', cameraPitch: 'Inclinación', cameraXOffset: 'Desplazamiento horizontal', cameraHint: 'Desplazamiento: negativo izquierda, positivo derecha, límite 8. Inclinación: negativo arriba, positivo abajo.', recovering: 'El mar no está listo; interfaz sin cambios', mileageToday: 'Navegado hoy', mileageFleet: 'Navegado', mileageUnit: 'mn' },
+      fr: { open: 'Réglages océan', show: 'Afficher l’océan', strength: 'Opacité', running: 'Lecture', quality: 'Qualité', balanced: 'Équilibrée', high: 'Haute', cameraDistance: 'Distance caméra', cameraHeight: 'Hauteur caméra', cameraPitch: 'Inclinaison', cameraXOffset: 'Décalage horizontal', cameraHint: 'Décalage : négatif à gauche, positif à droite, limite 8. Inclinaison : négatif vers le haut, positif vers le bas.', recovering: 'Océan indisponible, interface inchangée', mileageToday: 'Parcouru aujourd’hui', mileageFleet: 'Parcouru', mileageUnit: 'M' },
+      de: { open: 'Meeres-Einstellungen', show: 'Meer anzeigen', strength: 'Deckkraft', running: 'Aktiv', quality: 'Qualität', balanced: 'Ausgewogen', high: 'Hoch', cameraDistance: 'Kameraabstand', cameraHeight: 'Kamerahöhe', cameraPitch: 'Kameraneigung', cameraXOffset: 'Seitlicher Versatz', cameraHint: 'Versatz: negativ links, positiv rechts, Limit 8. Neigung: negativ nach oben, positiv nach unten.', recovering: 'Meer nicht bereit, Oberfläche unverändert', mileageToday: 'Heute gesegelt', mileageFleet: 'Gesegelt', mileageUnit: 'sm' },
+      ru: { open: 'Настройки моря', show: 'Показать море', strength: 'Интенсивность', running: 'Воспроизведение', quality: 'Качество', balanced: 'Баланс', high: 'Высокое', cameraDistance: 'Дистанция камеры', cameraHeight: 'Высота камеры', cameraPitch: 'Наклон камеры', cameraXOffset: 'Смещение по горизонтали', cameraHint: 'Смещение: минус влево, плюс вправо, предел 8. Наклон: минус вверх, плюс вниз.', recovering: 'Море не готово, интерфейс не изменён', mileageToday: 'Пройдено сегодня', mileageFleet: 'Пройдено', mileageUnit: 'миль' },
+      pt: { open: 'Ajustes do oceano', show: 'Mostrar oceano', strength: 'Intensidade', running: 'Reproduzindo', quality: 'Qualidade', balanced: 'Equilibrada', high: 'Alta', cameraDistance: 'Distância da câmera', cameraHeight: 'Altura da câmera', cameraPitch: 'Inclinação', cameraXOffset: 'Deslocamento horizontal', cameraHint: 'Deslocamento: negativo à esquerda, positivo à direita, limite 8. Inclinação: negativo para cima, positivo para baixo.', recovering: 'Oceano indisponível, interface inalterada', mileageToday: 'Navegado hoje', mileageFleet: 'Navegado', mileageUnit: 'mn' },
     };
     const FALLBACK_LANGUAGE = 'en';
 
@@ -245,6 +251,11 @@ body[data-ds-dark-theme] #${PANEL_ID} {
           let lastMileageData = null;
           let frame = null;
           let readyTimer = 0;
+          let noteEl = null;
+
+          const setNoteVisible = (visible) => {
+            if (noteEl) noteEl.hidden = !visible;
+          };
 
           setStyle(UI_STYLE_ID, UI_CSS);
 
@@ -343,7 +354,7 @@ body[data-ds-dark-theme] #${PANEL_ID} {
               if (state.disposed || frame !== pending || state.revealed) return;
               unmountFrame();
               state.failed = true;
-              document.getElementById('ob-note').hidden = false;
+              setNoteVisible(true);
               console.warn('[ocean-background] renderer readiness timed out');
             }, READY_TIMEOUT);
           };
@@ -351,7 +362,7 @@ body[data-ds-dark-theme] #${PANEL_ID} {
           const mountFrame = () => {
             if (frame || state.disposed || !state.settings.enabled || document.hidden) return;
             state.failed = false;
-            document.getElementById('ob-note').hidden = true;
+            setNoteVisible(false);
             frame = document.createElement('iframe');
             frame.id = FRAME_ID;
             frame.setAttribute('aria-hidden', 'true');
@@ -412,25 +423,26 @@ body[data-ds-dark-theme] #${PANEL_ID} {
           panel.setAttribute('aria-label', text.open);
           panel.hidden = true;
           panel.innerHTML = ''
-            + `<p class="ob-title" id="ob-title">${text.open}</p>`
-            + `<div class="ob-row"><label for="ob-enabled" id="ob-show-label">${text.show}</label><input id="ob-enabled" type="checkbox"></div>`
-            + `<div><div class="ob-row"><label for="ob-strength" id="ob-strength-label">${text.strength}</label><output id="ob-strength-out"></output></div>`
+            + `<p class="ob-title" data-i18n="open"></p>`
+            + `<div class="ob-row"><label for="ob-enabled" data-i18n="show"></label><input id="ob-enabled" type="checkbox"></div>`
+            + `<div><div class="ob-row"><label for="ob-strength" data-i18n="strength"></label><output id="ob-strength-out"></output></div>`
             + `<input id="ob-strength" type="range" min="35" max="95" step="1"></div>`
-            + `<div class="ob-row"><label for="ob-running" id="ob-running-label">${text.running}</label><input id="ob-running" type="checkbox"></div>`
-            + `<div class="ob-row"><label for="ob-quality" id="ob-quality-label">${text.quality}</label><select id="ob-quality">`
-            + `<option value="balanced" id="ob-balanced-option">${text.balanced}</option><option value="high" id="ob-high-option">${text.high}</option></select></div>`
+            + `<div class="ob-row"><label for="ob-running" data-i18n="running"></label><input id="ob-running" type="checkbox"></div>`
+            + `<div class="ob-row"><label for="ob-quality" data-i18n="quality"></label><select id="ob-quality">`
+            + `<option value="balanced" data-i18n="balanced"></option><option value="high" data-i18n="high"></option></select></div>`
             + Object.entries(CAMERA_LIMITS).map(([key, limits]) =>
-              `<div><div class="ob-row"><label for="ob-${key}" id="ob-${key}-label">${text[key]}</label><output id="ob-${key}-out" for="ob-${key}"></output></div>`
+              `<div><div class="ob-row"><label for="ob-${key}" data-i18n="${key}"></label><output id="ob-${key}-out" for="ob-${key}"></output></div>`
               + `<input id="ob-${key}" type="range" min="${limits.min}" max="${limits.max}" step="${limits.step}"></div>`
             ).join('')
-            + `<p class="ob-note" id="ob-camera-hint">${text.cameraHint}</p>`
-            + `<p class="ob-note" id="ob-note" hidden>${text.recovering}</p>`;
+            + `<p class="ob-note" data-i18n="cameraHint"></p>`
+            + `<p class="ob-note" id="ob-note" data-i18n="recovering" hidden></p>`;
 
           const enabledInput = panel.querySelector('#ob-enabled');
           const strengthInput = panel.querySelector('#ob-strength');
           const strengthOut = panel.querySelector('#ob-strength-out');
           const runningInput = panel.querySelector('#ob-running');
           const qualitySelect = panel.querySelector('#ob-quality');
+          noteEl = panel.querySelector('#ob-note');
 
           const syncControls = () => {
             enabledInput.checked = state.settings.enabled;
@@ -446,29 +458,19 @@ body[data-ds-dark-theme] #${PANEL_ID} {
             button.dataset.on = String(state.settings.enabled);
           };
 
-          const setText = (id, value) => {
-            const node = panel.querySelector(`#${id}`);
-            if (node) node.textContent = value;
-          };
-
           const refreshLanguage = () => {
             const active = ctx.locale?.getSnapshot?.().active;
             text = messagesFor(active || document.documentElement.lang || navigator.language);
             button.title = text.open;
             button.setAttribute('aria-label', text.open);
             panel.setAttribute('aria-label', text.open);
-            setText('ob-title', text.open);
-            setText('ob-show-label', text.show);
-            setText('ob-strength-label', text.strength);
-            setText('ob-running-label', text.running);
-            setText('ob-quality-label', text.quality);
-            setText('ob-balanced-option', text.balanced);
-            setText('ob-high-option', text.high);
-            for (const key of Object.keys(CAMERA_LIMITS)) setText(`ob-${key}-label`, text[key]);
-            setText('ob-camera-hint', text.cameraHint);
-            setText('ob-note', text.recovering);
+            for (const node of panel.querySelectorAll('[data-i18n]')) {
+              const key = node.getAttribute('data-i18n');
+              if (key && typeof text[key] === 'string') node.textContent = text[key];
+            }
             if (lastMileageData) applyMileage(lastMileageData);
           };
+          refreshLanguage();
 
           const stopLocale = typeof ctx.locale?.subscribe === 'function'
             ? ctx.locale.subscribe(refreshLanguage)
@@ -481,7 +483,7 @@ body[data-ds-dark-theme] #${PANEL_ID} {
             syncControls();
             if (!state.settings.enabled || qualityChanged) unmountFrame();
             if (!state.settings.enabled) {
-              document.getElementById('ob-note').hidden = true;
+              setNoteVisible(false);
               stopMileage();
               mileageLabel.hidden = true;
             } else {
@@ -515,7 +517,15 @@ body[data-ds-dark-theme] #${PANEL_ID} {
             button.setAttribute('aria-expanded', 'false');
             button.focus();
           };
+          const onPointerDown = (event) => {
+            if (panel.hidden) return;
+            const target = event.target;
+            if (target instanceof Node && (panel.contains(target) || button.contains(target))) return;
+            panel.hidden = true;
+            button.setAttribute('aria-expanded', 'false');
+          };
           document.addEventListener('keydown', onKeyDown);
+          document.addEventListener('pointerdown', onPointerDown);
           // One dock owns both controls. A stale node from an interrupted mount
           // would otherwise sit on top of the new pair at the same coordinates.
           for (const id of [DOCK_ID, BUTTON_ID, PANEL_ID, MILEAGE_ID]) {
@@ -567,6 +577,7 @@ body[data-ds-dark-theme] #${PANEL_ID} {
             window.removeEventListener('message', onMessage);
             document.removeEventListener('visibilitychange', onVisibility);
             document.removeEventListener('keydown', onKeyDown);
+            document.removeEventListener('pointerdown', onPointerDown);
             unmountFrame();
             button.remove();
             panel.remove();
