@@ -1,4 +1,3 @@
-/** HTTP and lifecycle adapter for the ocean background. */
 import { readFile } from 'node:fs/promises'
 import { homedir } from 'node:os'
 import { extname, join, resolve, sep } from 'node:path'
@@ -7,7 +6,6 @@ import { createMileageLedger } from './mileage.js'
 import { installForkSnapshots } from './host/fork-snapshots.js'
 import { readService, describeError, logOnce, debugPayload, sessionSnapshot, resolveMileageTarget, clearOceanCaches } from './host/session-state.js'
 
-// Preserve the existing exported interface while implementations live with their owners.
 export { STATUS, usageOfEvent, bucketsOf, createFoldState, foldSessionFacts, statusOfFacts } from './host/session-facts.js'
 export { clearOceanCaches, readSessionFacts, resolveRootSessionId, isMeteringEligible, resolveMileageTarget, listFleetRows, emptySnapshot, sessionSnapshot } from './host/session-state.js'
 

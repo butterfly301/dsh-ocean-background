@@ -1,19 +1,11 @@
-// Host-owned session reading. Each Cordis context owns its caches and diagnostics.
 import { STATUS, sumBuckets, createFoldState, foldSessionFacts, statusOfFacts } from './session-facts.js'
 
-/** `SessionHeader.origin` marks a Session created as a subagent child. */
 const SUBAGENT_ORIGIN = 'subagent'
-/** Bound for one upward walk; a cycle or a deep tree stops instead of looping. */
 const MAX_ANCESTRY_DEPTH = 64
-/** A cold Session is re-read from persistence at most once per window. */
 const COLD_READ_TTL_MS = 1500
-/** Header reads are cheap but not free; ancestry reuses them briefly. */
 const HEADER_TTL_MS = 5000
-/** Upper bound on retained per-Session fold state. */
 const MAX_CACHE_ENTRIES = 256
-/** Fold state untouched for this long is dropped. */
 const CACHE_IDLE_MS = 120_000
-/** Repeated failures log once per window instead of once per poll. */
 const LOG_INTERVAL_MS = 10_000
 const MAX_LOG_KEYS = 64
 
@@ -118,7 +110,6 @@ function pruneCache(ctx, now) {
   }
 }
 
-/** Drop every retained Session fact and header. Called when the plugin unloads. */
 export function clearOceanCaches(ctx) {
   if (ctx === undefined) states = new WeakMap()
   else states.delete(ctx)
@@ -134,13 +125,6 @@ function liveSession(ctx, sessionId) {
   }
 }
 
-/**
- * Read one Session's own-suffix facts.
- *
- * A live Session folds in place. A cold one goes through `sessionQuery.inspectSession`,
- * which reuses or restores a prepared Session without publishing it; the result is
- * reused for a short window with one shared pass. Failure returns null.
- */
 export async function readSessionFacts(ctx, sessionId, signal) {
   const { inflight } = stateOf(ctx)
   const live = liveSession(ctx, sessionId)
@@ -159,8 +143,6 @@ export async function readSessionFacts(ctx, sessionId, signal) {
   }
 
   const now = Date.now()
-  // A zero timestamp means this Session has never been read. A later timestamp
-  // covers both a fresh success and a failed attempt backing off for the window.
   if (entry.at !== 0 && now - entry.at < COLD_READ_TTL_MS) {
     return entry.state.readable ? entry.state : null
   }
@@ -194,10 +176,6 @@ export async function readSessionFacts(ctx, sessionId, signal) {
   return task
 }
 
-/**
- * Read one Session's immutable header, live first, then from a cold head read
- * that computes no projections.
- */
 async function readHeader(ctx, sessionId, signal) {
   const { headerCache } = stateOf(ctx)
   const live = liveSession(ctx, sessionId)
@@ -218,13 +196,6 @@ async function readHeader(ctx, sessionId, signal) {
   }
 }
 
-/**
- * Resolve the conversation root for a selection.
- *
- * Only `origin: 'subagent'` makes a Session a child; an ordinary fork may keep
- * `parentSession` and stays its own root. A broken chain is an error, never a
- * child reported as the root it failed to find.
- */
 export async function resolveRootSessionId(ctx, sessionId, signal) {
   let current = sessionId
   const visited = new Set()
@@ -276,11 +247,6 @@ function childRow(id, status, title) {
   return row
 }
 
-/**
- * List every descendant through the durable subagent catalogs, which walk the
- * whole tree without loading an Agent. A throwing listing stays an error; it is
- * never replaced by direct children alone.
- */
 export async function listFleetRows(ctx, rootId, signal) {
   const subagents = readService(ctx, 'subagents')
   if (!subagents || typeof subagents.listDescendants !== 'function') {
@@ -292,7 +258,6 @@ export async function listFleetRows(ctx, rootId, signal) {
   return listed
 }
 
-/** The response for a missing selection: no conversation, no boats, no guess. */
 export function emptySnapshot() {
   return {
     ok: true,
@@ -305,15 +270,6 @@ export function emptySnapshot() {
   }
 }
 
-/**
- * Build one state payload for a selected main-view Session.
- *
- * Tokens are the four real usage buckets over the root and every distinct
- * descendant, each counted once because every fold starts at its own fork cut.
- * `flowTokens` repeats the cumulative total the renderer turns into a delta. An
- * unreadable branch makes the total unknowable: `tokensComplete: false` with null
- * counters, so a partial sum never reads as a lull and then a spike.
- */
 export async function sessionSnapshot(ctx, sessionId, signal) {
   if (typeof sessionId !== 'string' || sessionId.trim() === '') return emptySnapshot()
   const selected = sessionId.trim()

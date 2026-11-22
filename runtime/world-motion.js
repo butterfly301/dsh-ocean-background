@@ -1,7 +1,4 @@
-// Forward travel keeps the ship moving through a fixed sea at a readable pace.
-// One scene unit reads as about one metre, so this is roughly three knots.
 export const VOYAGE_SPEED = 1.6;
-// The camera leads the hull slightly so the water ahead has more screen space.
 export const CAMERA_LEAD = 5;
 export const CAMERA_X_OFFSET_LIMIT = 8;
 

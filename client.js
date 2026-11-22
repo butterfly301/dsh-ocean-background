@@ -36,9 +36,6 @@ window.__ModuleLoader__.load({
       return (Math.floor((meters * 100) / METERS_PER_NM + 1e-9) / 100).toFixed(2);
     }
 
-    // Interface copy is a locale table keyed by language tag. messagesFor()
-    // accepts any BCP 47 tag, falls back from a region variant to its base
-    // language, then to English. Adding a language means adding one entry here.
     const MESSAGES = {
       zh: { open: '海景设置', show: '显示海面', strength: '背景强度', running: '播放', quality: '画质', balanced: '均衡', high: '高', cameraDistance: '摄像机距离', cameraHeight: '摄像机高度', cameraPitch: '摄像机俯仰角', cameraXOffset: '镜头左右偏移', cameraHint: '左右偏移：负值向左，正值向右，上限 8。俯仰角：负值向上，正值向下。', recovering: '海面未就绪，界面保持原样', mileageToday: '今日已航行', mileageFleet: '目前已航行', mileageUnit: '海里' },
       en: { open: 'Ocean settings', show: 'Show ocean', strength: 'Strength', running: 'Playing', quality: 'Quality', balanced: 'Balanced', high: 'High', cameraDistance: 'Camera distance', cameraHeight: 'Camera height', cameraPitch: 'Camera pitch', cameraXOffset: 'Camera horizontal offset', cameraHint: 'Horizontal offset: negative left, positive right; limit 8. Pitch: negative looks up, positive looks down.', recovering: 'Sea not ready, interface untouched', mileageToday: 'Sailed today', mileageFleet: 'Sailed', mileageUnit: 'nm' },
@@ -58,15 +55,6 @@ window.__ModuleLoader__.load({
       return { ...MESSAGES[FALLBACK_LANGUAGE], ...MESSAGES[matched] };
     }
 
-    // Shell styling is the Open Sea Skin recipe, kept as close to the original as
-    // this plugin needs. The mechanism is a single one: the theme's own surface
-    // tokens are made translucent on #root, so every surface that reads a token
-    // becomes see-through at once. No container is targeted by class name, and
-    // nothing is forced fully transparent, which is what keeps the text readable.
-    //
-    // The frame is the one exception. It paints its own fill from --dsw-alias-bg-base
-    // and its columns paint again on top, so those get pinned to the same
-    // translucent token instead of compounding into a darker centre.
     function shellCss(strength) {
       const light = Math.min(0.95, Math.max(0.35, strength));
       const dark = Math.max(0.40, light - 0.12);
@@ -97,16 +85,27 @@ body[data-ds-dark-theme] #root {
   --dsw-specific-sidebar-fill: rgba(11, 15, 21, ${a(Math.max(0.35, dark - 0.05))}) !important;
   --dsw-specific-selector: rgba(13, 17, 23, ${a(dark + 0.02)}) !important;
 }
-/* Official Harness Desktop 0.2.x: sidebar, centre, conversation and docked
-   rightbar each paint a surface, and translucent paints compound into a much
-   darker centre. Paint the shared frame once from the token, then clear the
-   columns so only that one translucent fill remains. */
 html:is([data-platform="darwin"], [data-windows-titlebar]) body #root div:has(> [data-shell-overlay]) {
   background: var(--dsw-alias-bg-base) !important;
 }
-/* The sidebar slot paints its own tint from this token in the Web layout as
-   well as the desktop one, so it is cleared at the semantic boundary rather
-   than only under the desktop attribute. */
+body #root [data-composer-seat] {
+  background: none !important;
+}
+
+body #root [data-composer-seat] {
+  --dsw-alias-bg-base: rgba(255, 255, 255, 0.55) !important;
+  --dsw-alias-bg-layer-1: rgba(255, 255, 255, 0.55) !important;
+  --dsw-alias-bg-layer-2: rgba(255, 255, 255, 0.55) !important;
+  --dsw-alias-bg-layer-3: rgba(255, 255, 255, 0.55) !important;
+  --dsw-specific-input-major: rgba(255, 255, 255, 0.55) !important;
+}
+body[data-ds-dark-theme] #root [data-composer-seat] {
+  --dsw-alias-bg-base: rgba(26, 30, 37, 0.55) !important;
+  --dsw-alias-bg-layer-1: rgba(26, 30, 37, 0.55) !important;
+  --dsw-alias-bg-layer-2: rgba(26, 30, 37, 0.55) !important;
+  --dsw-alias-bg-layer-3: rgba(26, 30, 37, 0.55) !important;
+  --dsw-specific-input-major: rgba(26, 30, 37, 0.55) !important;
+}
 body #root [data-slot="sidebar"] {
   --dsw-specific-sidebar-fill: transparent !important;
 }
@@ -118,16 +117,12 @@ html:is([data-platform="darwin"], [data-windows-titlebar]) body #root [data-righ
 html[data-windows-titlebar] body #root div:has(> [data-shell-overlay])::before {
   background: transparent !important;
 }
-/* Composer, bubbles and code cards keep a solid surface inside the conversation
-   slot; settings and other plugin interfaces keep their original fills. */
 body [data-slot="main.conversation"] {
   --dsw-specific-input-major: var(--dsw-alias-bg-layer-1) !important;
   --dsw-specific-bubble: var(--dsw-alias-bg-layer-2) !important;
   --dsw-alias-markdown-code-block: var(--dsw-alias-bg-layer-1) !important;
   --dsw-alias-markdown-code-block-banner: var(--dsw-alias-bg-layer-2) !important;
 }
-/* Dialog cards are body-level portals: keep them opaque so no text sits on the
-   sea. The plugin's own panel is excluded and styles itself. */
 body :is([data-shortcut-modal="settings"], [role="dialog"], [role="alertdialog"]):not(#${PANEL_ID}) {
   background: rgba(250, 251, 253, .97) !important;
 }
@@ -243,9 +238,6 @@ body[data-ds-dark-theme] #${PANEL_ID} {
 
         return ctx.effect(() => {
           const state = { settings: readSettings(), sessionId: null, revealed: false, failed: false, disposed: false };
-          // Follow the host's own language service. Its `active` id is the
-          // authoritative value (e.g. zh-pirate, en, ja); document.lang is only
-          // a late mirror of it and can lag behind at mount time.
           const activeLanguage = ctx.locale?.getSnapshot?.().active;
           let text = messagesFor(activeLanguage || document.documentElement.lang || navigator.language);
           let lastMileageData = null;
@@ -402,10 +394,6 @@ body[data-ds-dark-theme] #${PANEL_ID} {
           };
           document.addEventListener('visibilitychange', onVisibility);
 
-          // ---- controls ---------------------------------------------------------
-          // Plain DOM with an always-present stylesheet, like the reference plugin.
-          // Living in a slot shared the shell stylesheet, so switching the sea off
-          // also stripped the button's styling and lost it.
           const button = document.createElement('button');
           button.id = BUTTON_ID;
           button.type = 'button';
@@ -526,8 +514,6 @@ body[data-ds-dark-theme] #${PANEL_ID} {
           };
           document.addEventListener('keydown', onKeyDown);
           document.addEventListener('pointerdown', onPointerDown);
-          // One dock owns both controls. A stale node from an interrupted mount
-          // would otherwise sit on top of the new pair at the same coordinates.
           for (const id of [DOCK_ID, BUTTON_ID, PANEL_ID, MILEAGE_ID]) {
             document.getElementById(id)?.remove();
           }
@@ -543,7 +529,6 @@ body[data-ds-dark-theme] #${PANEL_ID} {
           let selectionQueued = false;
           const syncSelection = () => {
             if (state.disposed) return;
-            // mainView is the Session Controller's explicit reference source.
             const selected = Object.values(sessions.getSnapshot().byId)
               .filter((session) => session.retainedBy?.mainView > 0);
             const sessionId = selected.length === 1 ? selected[0].id : null;

@@ -1,12 +1,7 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { disposeObject3D } from './resources.js';
-import {
-  buildIslandSurfaceData,
-  buildReefSurfaceData,
-  chooseIslandArchetype,
-  chooseReefArchetype,
-} from './scenery-geometry.js';
+import { buildIslandSurfaceData, chooseIslandArchetype } from './scenery-geometry.js';
 import {
   islandNeedsPlacement,
   islandScale,
@@ -19,17 +14,16 @@ import {
   recycleX,
   reefZ,
 } from './scenery-layout.js';
-
-// Everything here sits still in world space; the camera passes it with the ship.
-// Scenery may appear in front of the hull as well as behind it, but every spawn
-// keeps clear of the hull lane and of the camera's clearance bubble.
+import { createRockLibrary } from './rock-assets.js';
 
 const ISLAND_SPAN = 300;
 const ISLAND_COUNT = 3;
 const REEF_SPAN = 260;
 const REEF_COUNT = 4;
+const ROCKY_ISLAND = 'rocky-island';
+const PALM_NAME = 'island-coconut-palm';
+const TAU = Math.PI * 2;
 
-// A gull seen from the side: two swept wings and a small body, drawn once.
 function makeBirdTexture() {
   const canvas = document.createElement('canvas');
   canvas.width = 128;
@@ -50,7 +44,7 @@ function makeBirdTexture() {
   ctx.closePath();
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(64, 46, 9, 7, 0, 0, Math.PI * 2);
+  ctx.ellipse(64, 46, 9, 7, 0, 0, TAU);
   ctx.fill();
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
@@ -78,20 +72,11 @@ export function createScenery(scene, camera) {
   const palmSources = [];
   let disposed = false;
 
+  const rocks = createRockLibrary();
+
   const islandMaterial = new THREE.MeshStandardMaterial({
     vertexColors: true,
     roughness: 0.94,
-    flatShading: true,
-  });
-  const rockMaterial = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    roughness: 1,
-    flatShading: true,
-  });
-  const reefMaterial = new THREE.MeshStandardMaterial({
-    vertexColors: true,
-    color: '#6f6d66',
-    roughness: 1,
     flatShading: true,
   });
   const shrubMaterial = new THREE.MeshStandardMaterial({
@@ -100,100 +85,182 @@ export function createScenery(scene, camera) {
     flatShading: true,
   });
   const shrubGeometry = new THREE.IcosahedronGeometry(1, 0);
-  const visibleIslandTypes = new Set();
 
-  function applyIslandArchetype(entry, archetype, seed) {
-    const { island, surface } = entry;
-    for (const child of [...island.children]) {
-      if (child === surface || child.name === 'island-coconut-palm') continue;
-      island.remove(child);
-      if (child.geometry && child.geometry !== shrubGeometry) child.geometry.dispose();
+  function ensurePalm(entry) {
+    const source = palmSources[0];
+    const palm = entry.surfaceData?.palm;
+    const existing = entry.island.getObjectByName(PALM_NAME);
+    if (!palm) {
+      if (existing) existing.visible = false;
+      return;
     }
-    surface.geometry.dispose();
-    const surfaceData = buildIslandSurfaceData(archetype, seed);
-    surface.geometry = surfaceGeometry(surfaceData);
-    surface.name = `island-surface-${archetype}`;
-    entry.archetype = archetype;
-    entry.surfaceData = surfaceData;
-    entry.seed = seed;
-
-    const shrubCount = Math.min(3, surfaceData.vegetation ?? 0);
-    for (let shrubIndex = 0; shrubIndex < shrubCount; shrubIndex += 1) {
-      const angle = 1.1 + shrubIndex * 2.05 + seed;
-      const shrub = new THREE.Mesh(shrubGeometry, shrubMaterial);
-      shrub.name = 'island-shrub';
-      shrub.position.set(
-        surfaceData.top.x + Math.cos(angle) * 1.2,
-        surfaceData.top.y + 0.08,
-        surfaceData.top.z + Math.sin(angle) * 0.9,
-      );
-      shrub.scale.set(0.55 + shrubIndex * 0.08, 0.34, 0.5);
-      shrub.rotation.y = Math.random() * Math.PI;
-      island.add(shrub);
+    if (!source) return;
+    let mesh = existing;
+    if (!mesh) {
+      mesh = source.clone(true);
+      mesh.name = PALM_NAME;
+      entry.island.add(mesh);
     }
+    mesh.visible = true;
+    mesh.position.set(palm.x, palm.y, palm.z);
+    mesh.scale.setScalar(palm.scale);
+    mesh.rotation.y = Math.random() * TAU;
+  }
 
-    if (archetype === 'rocky-island') {
-      for (let rockIndex = 0; rockIndex < 2; rockIndex += 1) {
-        const angle = rockIndex * Math.PI + 0.4;
-        const rockData = buildReefSurfaceData('squat', rockIndex + seed);
-        const rock = new THREE.Mesh(surfaceGeometry(rockData), rockMaterial);
-        rock.name = 'island-reef-stone';
-        rock.position.set(Math.cos(angle) * 6.2, 0.2, Math.sin(angle) * 4.2);
-        rock.scale.set(0.7, 0.5, 0.72);
-        island.add(rock);
-      }
-    }
-
-    const palm = island.getObjectByName('island-coconut-palm');
-    if (palm) {
-      palm.position.set(surfaceData.palm.x, surfaceData.palm.y, surfaceData.palm.z);
-      palm.scale.setScalar(surfaceData.palm.scale);
+  function removeIslandExtras(entry) {
+    for (const child of [...entry.island.children]) {
+      if (child === entry.surface || child.name === PALM_NAME) continue;
+      entry.island.remove(child);
+      if (child.userData.shared) continue;
+      child.traverse((node) => {
+        if (node.isMesh && node.geometry && node.geometry !== shrubGeometry) {
+          node.geometry.dispose();
+        }
+      });
     }
   }
 
-  for (let i = 0; i < ISLAND_COUNT; i += 1) {
+  function addShrubs(entry, data) {
+    const count = Math.min(3, data.vegetation ?? 0);
+    for (let index = 0; index < count; index += 1) {
+      const angle = 1.1 + index * 2.05 + entry.seed;
+      const shrub = new THREE.Mesh(shrubGeometry, shrubMaterial);
+      shrub.name = 'island-shrub';
+      shrub.position.set(
+        data.top.x + Math.cos(angle) * 1.2,
+        data.top.y + 0.08,
+        data.top.z + Math.sin(angle) * 0.9,
+      );
+      shrub.scale.set(0.55 + index * 0.08, 0.34, 0.5);
+      shrub.rotation.y = Math.random() * Math.PI;
+      entry.island.add(shrub);
+    }
+  }
+
+  function placeRock(entry, name, footprint, angle, radius, height = 0.15) {
+    const rock = rocks.make(name, footprint);
+    if (!rock) return;
+    rock.position.set(Math.cos(angle) * radius, height, Math.sin(angle) * radius * 0.72);
+    rock.rotation.y = Math.random() * TAU;
+    entry.island.add(rock);
+  }
+
+  /**
+   * Rocky islands are a sand shelf with a cluster of the provided rock models
+   * on top, not a procedurally generated rock cone.
+   */
+  function addRockyCluster(entry) {
+    for (const child of [...entry.island.children]) {
+      if (child.userData.shared) entry.island.remove(child);
+    }
+    if (!rocks.isReady) return;
+
+    const main = rocks.make('tall_rock', 6.0 + Math.random() * 1.8);
+    if (main) {
+      main.position.set((Math.random() - 0.5) * 1.0, -0.22, (Math.random() - 0.5) * 1.0);
+      main.rotation.y = Math.random() * TAU;
+      entry.island.add(main);
+    }
+    placeRock(entry, 'rock_d', 4.6 + Math.random() * 1.6, Math.random() * TAU, 3.2, -0.25);
+    if (Math.random() < 0.8) {
+      placeRock(entry, 'cliff_c', 1.3 + Math.random() * 0.6, Math.random() * TAU, 4.1, -0.18);
+    }
+    if (Math.random() < 0.55) {
+      placeRock(entry, Math.random() < 0.5 ? 'rock_d' : 'tall_rock', 2.2 + Math.random() * 1.2, Math.random() * TAU, 2.4, -0.20);
+    }
+  }
+
+  function applyIslandArchetype(entry, archetype, seed) {
+    removeIslandExtras(entry);
+    entry.archetype = archetype;
+    entry.seed = seed;
+
+    const surface = entry.surface;
+    surface.visible = true;
+    surface.scale.setScalar(1);
+
+    let data;
+    if (archetype === ROCKY_ISLAND) {
+      // A low sand shelf under the rocks; the rocks provide the silhouette.
+      data = buildIslandSurfaceData('sandbar-shoal', seed);
+      data = { ...data, palm: null, vegetation: 0 };
+      surface.scale.setScalar(0.62);
+      surface.name = 'island-sand-base';
+    } else {
+      data = buildIslandSurfaceData(archetype, seed);
+      surface.name = `island-surface-${archetype}`;
+    }
+
+    surface.geometry.dispose();
+    surface.geometry = surfaceGeometry(data);
+    entry.surfaceData = data;
+
+    if (archetype === ROCKY_ISLAND) {
+      addRockyCluster(entry);
+    } else {
+      addShrubs(entry, data);
+    }
+    ensurePalm(entry);
+  }
+
+  function populateReef(entry) {
+    const reef = entry.reef;
+    for (const child of [...reef.children]) reef.remove(child);
+    if (!rocks.isReady) return;
+
+    const main = rocks.make(Math.random() < 0.55 ? 'tall_rock' : 'rock_d', 2.4 + Math.random() * 1.8);
+    if (main) {
+      main.position.set((Math.random() - 0.5) * 1.4, -0.34 + Math.random() * 0.12, (Math.random() - 0.5) * 1.1);
+      main.rotation.y = Math.random() * TAU;
+      reef.add(main);
+    }
+
+    const extraCount = 1 + Math.floor(Math.random() * 2);
+    for (let index = 0; index < extraCount; index += 1) {
+      const useStack = Math.random() < 0.38;
+      const name = useStack ? 'cliff_c' : (Math.random() < 0.55 ? 'rock_d' : 'tall_rock');
+      const footprint = useStack ? 0.9 + Math.random() * 0.6 : 1.4 + Math.random() * 1.3;
+      const rock = rocks.make(name, footprint);
+      if (!rock) continue;
+      const angle = Math.random() * TAU;
+      const radius = 1.2 + Math.random() * 2.1;
+      rock.position.set(
+        Math.cos(angle) * radius,
+        -0.36 + Math.random() * 0.14,
+        Math.sin(angle) * radius * 0.75,
+      );
+      rock.rotation.y = Math.random() * TAU;
+      reef.add(rock);
+    }
+  }
+
+  const visibleIslandTypes = new Set();
+  for (let index = 0; index < ISLAND_COUNT; index += 1) {
     const island = new THREE.Group();
-    island.name = `tropical-island-${i + 1}`;
+    island.name = `tropical-island-${index + 1}`;
     const archetype = chooseIslandArchetype(Math.random, visibleIslandTypes);
     visibleIslandTypes.add(archetype);
-    island.position.set(ISLAND_SPAN * (-0.3 + i * 0.3), 0, islandZ({ cameraZ: cameraZ(), archetype }));
+    const laneX = [-ISLAND_SPAN * 0.45, -ISLAND_SPAN * 0.18, ISLAND_SPAN * 0.30][index];
+    island.position.set(laneX, 0, islandZ({ cameraZ: cameraZ(), archetype }));
     island.scale.setScalar(islandScale());
-    island.rotation.y = Math.random() * Math.PI * 2;
+    island.rotation.y = Math.random() * TAU;
 
     const surface = new THREE.Mesh(new THREE.BufferGeometry(), islandMaterial);
     island.add(surface);
     const entry = { island, span: ISLAND_SPAN, surface, archetype, surfaceData: null, seed: 0 };
-    applyIslandArchetype(entry, archetype, i * 1.71 + 0.8);
     group.add(island);
     islands.push(entry);
+    applyIslandArchetype(entry, archetype, index * 1.71 + 0.8);
   }
 
-  // Standalone reef stones: low, dark and clustered, a step nearer than islands.
-  for (let i = 0; i < REEF_COUNT; i += 1) {
+  for (let index = 0; index < REEF_COUNT; index += 1) {
     const reef = new THREE.Group();
-    reef.name = `reef-${i + 1}`;
-    reef.position.set(REEF_SPAN * (-0.25 + i * 0.25), 0, reefZ(cameraZ()));
-    const stones = 2 + Math.floor(Math.random() * 2);
-    for (let stoneIndex = 0; stoneIndex < stones; stoneIndex += 1) {
-      const archetype = chooseReefArchetype(Math.random);
-      const stoneData = buildReefSurfaceData(archetype, i * 2.3 + stoneIndex);
-      const stone = new THREE.Mesh(surfaceGeometry(stoneData), reefMaterial);
-      stone.name = `reef-stone-${archetype}`;
-      stone.position.set(
-        (Math.random() - 0.5) * 5,
-        0.12 + Math.random() * 0.25,
-        (Math.random() - 0.5) * 3.2,
-      );
-      stone.scale.set(
-        1.1 + Math.random() * 1.2,
-        0.5 + Math.random() * 0.6,
-        0.8 + Math.random() * 0.9,
-      );
-      stone.rotation.y = Math.random() * Math.PI;
-      reef.add(stone);
-    }
+    reef.name = `reef-${index + 1}`;
+    reef.position.set(REEF_SPAN * (-0.375 + index * 0.25), 0, reefZ(cameraZ()));
     group.add(reef);
-    reefs.push({ reef, span: REEF_SPAN });
+    const entry = { reef, span: REEF_SPAN };
+    reefs.push(entry);
+    populateReef(entry);
   }
 
   new GLTFLoader().load('./assets/coconut-palm.glb', (gltf) => {
@@ -202,20 +269,21 @@ export function createScenery(scene, camera) {
       return;
     }
     palmSources.push(gltf.scene);
-    for (const entry of islands) {
-      const palm = gltf.scene.clone(true);
-      palm.name = 'island-coconut-palm';
-      palm.rotation.y = Math.random() * Math.PI * 2;
-      palm.position.set(entry.surfaceData.palm.x, entry.surfaceData.palm.y, entry.surfaceData.palm.z);
-      palm.scale.setScalar(entry.surfaceData.palm.scale);
-      entry.island.add(palm);
-    }
+    for (const entry of islands) ensurePalm(entry);
   }, undefined, (error) => {
     if (!disposed) console.warn('[ocean] coconut palm failed to load', error);
   });
 
+  rocks.ready.then(() => {
+    if (disposed) return;
+    for (const entry of reefs) populateReef(entry);
+    for (const entry of islands) {
+      if (entry.archetype === ROCKY_ISLAND) addRockyCluster(entry);
+    }
+  });
+
   const birdTexture = makeBirdTexture();
-  for (let i = 0; i < 5; i += 1) {
+  for (let index = 0; index < 5; index += 1) {
     const material = new THREE.MeshBasicMaterial({
       map: birdTexture,
       transparent: true,
@@ -247,15 +315,13 @@ export function createScenery(scene, camera) {
     const island = entry.island;
     island.position.x = recycleX(cameraX, entry.span);
     island.scale.setScalar(islandScale());
-    island.rotation.y = Math.random() * Math.PI * 2;
+    island.rotation.y = Math.random() * TAU;
     const otherTypes = new Set(
-      islands.filter(other => other !== entry).map(other => other.archetype),
+      islands.filter((other) => other !== entry).map((other) => other.archetype),
     );
     const archetype = chooseIslandArchetype(Math.random, otherTypes);
     applyIslandArchetype(entry, archetype, Math.random() * 1000);
     island.position.z = islandZ({ cameraZ: cameraZ(), archetype });
-    const palm = island.getObjectByName('island-coconut-palm');
-    if (palm) palm.rotation.y = Math.random() * Math.PI * 2;
   }
 
   return {
@@ -276,6 +342,7 @@ export function createScenery(scene, camera) {
         if (isBehindView(entry.reef.position.x, cameraX, entry.span)) {
           entry.reef.position.x = recycleX(cameraX, entry.span);
           entry.reef.position.z = reefZ(lensZ);
+          populateReef(entry);
         }
       }
       for (const item of birds) {
@@ -294,6 +361,17 @@ export function createScenery(scene, camera) {
       if (disposed) return;
       disposed = true;
       scene.remove(group);
+      for (const entry of islands) {
+        for (const child of [...entry.island.children]) {
+          if (child.userData.shared) entry.island.remove(child);
+        }
+      }
+      for (const entry of reefs) {
+        for (const child of [...entry.reef.children]) {
+          if (child.userData.shared) entry.reef.remove(child);
+        }
+      }
+      rocks.dispose();
       disposeObject3D(group, ...palmSources);
     },
   };

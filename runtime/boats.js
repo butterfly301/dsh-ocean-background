@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { waveHeightAt, waveSlopeAt } from './wave-field.js';
+import { sampleWaveAt } from './wave-field.js';
 import { toWorldX } from './world-motion.js';
 import {
   createBerthAllocator,
@@ -9,9 +9,6 @@ import {
   rowsOars,
 } from './fleet.js';
 
-// Crew boats sail in from off the left edge, hold station off the ship's bows,
-// and leave to the right. Every lane is outside the hull's beam, so a boat
-// never crosses the ship it belongs to.
 const ENTER_X = -34;
 const EXIT_X = 40;
 const BERTH_SPEED = 5.6;
@@ -21,8 +18,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
   const berthAllocator = createBerthAllocator();
   let rootId = null;
 
-  // The camera may move between frames, so the usable span is read live. A
-  // caller that never supplies getView keeps the plugin's default span.
   function readView() {
     if (typeof getView !== 'function') return undefined;
     try {
@@ -43,8 +38,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
   function spawn(id, shipX, phase, view) {
     const group = makeDinghy();
     const berth = berthAllocator.reserve(id, shipX, view);
-    // Enter along the boat's own lane, not across the fleet: the z coordinate is
-    // fixed for the whole approach.
     group.position.set(ENTER_X, 0, berth.z);
     group.rotation.y = Math.PI;
     scene.add(group);
@@ -67,8 +60,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
     return boat;
   }
 
-  // Removes a boat without touching its model: every boat shares the dinghy
-  // geometry and materials, which live until the fleet itself is disposed.
   function despawn(boat) {
     scene.remove(boat.group);
     berthAllocator.remove(boat.id);
@@ -81,7 +72,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
   }
 
   function sync(entries, { shipX = 0, rootId: nextRootId = null } = {}) {
-    // A different root session is a different fleet; no boat carries over.
     if (nextRootId !== rootId) {
       clear();
       rootId = nextRootId;
@@ -94,8 +84,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
       if (!entry || !entry.id) continue;
       const id = String(entry.id);
       const status = normalizeStatus(entry);
-      // A finished child's turn is closed; its boat leaves the water instead of
-      // holding a berth. Waiting and unknown children keep their place afloat.
       if (isTerminal(status)) continue;
       present.add(id);
 
@@ -110,8 +98,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
       const nextPhase = phaseFor(status, boat.phase);
       if (nextPhase !== boat.phase) {
         boat.phase = nextPhase;
-        // A boat that was sailing out and is working again comes back in from
-        // the left edge, not from wherever it had already drifted to.
         if (nextPhase === 'entering') {
           boat.group.position.set(ENTER_X, 0, berth.z);
           boat.group.rotation.y = Math.PI;
@@ -132,17 +118,12 @@ export function createFleet({ scene, makeDinghy, getView }) {
     for (const [id, boat] of boats) {
       const group = boat.group;
 
-      // Re-derive the berth every frame: the camera may have been dragged, and
-      // the formation must follow the visible water rather than a frozen span.
-      // A slow drift around the berth keeps the fleet alive without letting a
-      // boat wander away from the visible band.
       const berth = berthAllocator.reserve(id, boat.shipX, view);
       const driftX = Math.sin(time * 0.43 + boat.bob) * 0.22;
       const driftZ = Math.cos(time * 0.31 + boat.bob * 1.7) * 0.16;
       boat.berth.set(berth.x + driftX, berth.y, berth.z + driftZ);
 
       if (boat.phase === 'entering') {
-        // Hold the lane while closing in x, then settle onto the berth.
         const dx = boat.berth.x - group.position.x;
         const dz = boat.berth.z - group.position.z;
         const dist = Math.hypot(dx, dz);
@@ -160,7 +141,6 @@ export function createFleet({ scene, makeDinghy, getView }) {
         group.position.z += (boat.berth.z - group.position.z) * follow;
         group.rotation.y = Math.PI + boat.yaw + Math.sin(time * 0.3 + boat.bob) * 0.04;
       } else {
-        // Depart straight out along the same lane, clear of the hull.
         group.position.x += boat.speed * 1.2 * dt;
         group.rotation.y = Math.PI;
         if (group.position.x > EXIT_X) {
@@ -171,13 +151,11 @@ export function createFleet({ scene, makeDinghy, getView }) {
       }
 
       const worldX = toWorldX(group.position.x, worldOffset);
-      const h = waveHeightAt(worldX, group.position.z, time, flow, sea);
-      const slope = waveSlopeAt(worldX, group.position.z, time, flow, sea);
-      group.position.y = h * 0.95;
-      group.rotation.z = -slope.dx * 2.6 + Math.sin(time * 1.3 + boat.bob) * 0.015;
-      group.rotation.x = slope.dz * 2.8;
+      const wave = sampleWaveAt(worldX, group.position.z, time, flow, sea);
+      group.position.y = wave.height * 0.95;
+      group.rotation.z = -wave.dx * 2.6 + Math.sin(time * 1.3 + boat.bob) * 0.015;
+      group.rotation.x = wave.dz * 2.8;
 
-      // A working boat rocks its oars; a waiting or finished boat ships them.
       boat.row += (boat.targetRow - boat.row) * Math.min(1, dt * 1.5);
       for (const paddle of boat.paddles) {
         paddle.rotation.z = Math.sin(time * 2.4 + boat.bob) * 0.16 * boat.row;

@@ -1,6 +1,3 @@
-// Dispose only resources owned by these roots. Shared geometries, materials and
-// textures are collected across all roots before any of them is released.
-// Fleet clones borrow their model resources and must only be detached.
 export function disposeObject3D(...roots) {
   const geometries = new Set();
   const materials = new Set();

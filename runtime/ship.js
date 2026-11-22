@@ -2,15 +2,9 @@ import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import { mergeGeometries } from 'three/addons/utils/BufferGeometryUtils.js';
 
-// The model ships with a black sail cloth and a cyan skull that glows through an
-// emissive map. We want the cream canvas and no neon, so the sail material is
-// rebuilt and every other material simply loses its emissive channel.
 const SAIL_COLOR = new THREE.Color('#f3ece0');
 const FURLED_GAIN = 0.80;
-// Twelve units reads as a ship at a comfortable distance behind the UI, not a
-// model pressed against the camera.
 const TARGET_LENGTH = 10;
-// How far the keel sits under the surface. Enough to look loaded, not sunk.
 const DRAFT_RATIO = 0.091;
 
 const isSail = (name) => /^StylShip_Sail/i.test(name);
@@ -23,10 +17,6 @@ function stripEmissive(material) {
   return material;
 }
 
-// Bake a furled copy of a sail as a morph target. Compressing in the sail's own
-// local space would need an axis guess per mesh; doing it in world space and
-// converting straight back is exact, and the cost is paid once at load time on
-// geometries that hold a few hundred vertices each.
 function bakeFurl(mesh, cx) {
   const geometry = mesh.geometry;
   const position = geometry.getAttribute('position');
@@ -46,7 +36,6 @@ function bakeFurl(mesh, cx) {
     v.fromBufferAttribute(position, i).applyMatrix4(toWorld);
     const fromTop = topY - v.y;
     v.y = topY - fromTop * (1 - FURLED_GAIN) - height * 0.02 * FURLED_GAIN;
-    // The bundle bunches toward the centre line and wrinkles along it.
     v.x = cx + (v.x - cx) * (1 - 0.10 * FURLED_GAIN);
     v.z += Math.sin((v.x - cx) * 2.6) * height * 0.055 * FURLED_GAIN;
     v.applyMatrix4(toLocal);
@@ -92,7 +81,6 @@ function mergeStaticParts(root, keep) {
         }
         geometry.deleteAttribute('uv1');
         if (!geometry.index) {
-          // merged geometry must be consistently indexed or consistently raw
           const count = geometry.getAttribute('position').count;
           const index = new Uint32Array(count);
           for (let i = 0; i < count; i += 1) index[i] = i;
@@ -107,7 +95,6 @@ function mergeStaticParts(root, keep) {
       root.add(combined);
       for (const mesh of meshes) mesh.parent?.remove(mesh);
     } catch {
-      // A geometry set that cannot merge is not worth failing the ship over.
     }
   }
 }
@@ -116,8 +103,6 @@ export function prepareShip(gltf) {
   const root = gltf.scene;
   root.updateMatrixWorld(true);
 
-  // The upload carries its own water plane. It is a flat disc with a painted
-  // pattern: keeping it would draw a second sea on top of ours.
   const drop = [];
   root.traverse((node) => {
     if (node.name === 'WaterPlane' || /^WaterPlane/.test(node.name)) drop.push(node);
@@ -132,7 +117,6 @@ export function prepareShip(gltf) {
 
   const pivot = new THREE.Group();
   pivot.name = 'shipPivot';
-  // The model is built bow-to-the-left; the ship always sails to the right.
   pivot.rotation.y = Math.PI;
   root.scale.setScalar(scale);
   root.updateMatrixWorld(true);
@@ -140,12 +124,8 @@ export function prepareShip(gltf) {
   const scaled = new THREE.Box3().setFromObject(root);
   const center = new THREE.Vector3();
   scaled.getCenter(center);
-  // Centre on the hull, then drop it so the waterline sits just under the deck
-  // rather than on the keel.
   root.position.x -= center.x;
   root.position.z -= center.z;
-  // Keel below the waterline, scaled with the hull. A fixed depth that looked
-  // right on a 17-unit ship buried the waterline once the ship was 10.
   root.position.y -= scaled.min.y + TARGET_LENGTH * DRAFT_RATIO;
 
   pivot.add(root);
@@ -176,12 +156,8 @@ export function prepareShip(gltf) {
     }
   });
 
-  // The upload is a rigger's outliner: 70 meshes that share seven materials.
-  // Baked into one mesh per material they draw eight times instead of seventy,
-  // and nothing moves because none of them were meant to move.
   mergeStaticParts(root, sails);
 
-  // Furl every sail in one pass so all four share the same centre line.
   const cx = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3()).x;
   for (const mesh of sails) bakeFurl(mesh, cx);
 
@@ -209,10 +185,6 @@ export function loadShip(url) {
   });
 }
 
-
-// The crew boat is its own model: a rowboat with oars shipped inboard. It is
-// red-hulled, which is a useful second accent next to the brown ship.
-// The rowboat has its own hull and proportions.
 const DINGHY_LENGTH = 3.4;
 
 export function loadDinghy(url) {
@@ -237,8 +209,6 @@ function prepareDinghy(gltf) {
   const longest = Math.max(size.x, size.z);
   const scale = DINGHY_LENGTH / Math.max(longest, 0.001);
 
-  // Scale the model itself, never the pivot: every offset below is then in world
-  // units, which is the only way the draft stays the draft you can see.
   const shell = root.clone(true);
   shell.scale.setScalar(scale);
   shell.updateMatrixWorld(true);
@@ -248,9 +218,6 @@ function prepareDinghy(gltf) {
   scaled.getCenter(center);
   shell.position.x -= center.x;
   shell.position.z -= center.z;
-  // Draft is a share of the boat's own height, not a flat number: a rowboat has
-  // a shallow hull, and sinking it to a fixed depth hid the floor and the seats
-  // under the water plane, leaving a hollow shell on the surface.
   const height = Math.max(0.001, scaled.max.y - scaled.min.y);
   shell.position.y -= scaled.min.y + height * 0.13;
 
@@ -259,8 +226,6 @@ function prepareDinghy(gltf) {
   pivot.rotation.y = Math.PI;
   pivot.add(shell);
 
-  // The boat's own copy. Geometries and materials are shared with this pivot;
-  // both live until the runtime disposes the model.
   return {
     pivot,
     size: size.toArray(),

@@ -1,0 +1,22 @@
+Rock assets used by the ocean background
+=========================================
+
+Files
+-----
+- cliff_c.glb      - Cliff C, converted from C_Cliff_CM.obj
+- rock_d.glb       - Rock Formation D, converted from D_Rock_Formation_CM.obj
+- tall_rock.glb    - TallRock_2.glb, supplied by the plugin owner
+
+Source
+------
+Cliff C and Rock Formation D come from the free "FREE Cliffs and Rock
+Formations" pack supplied by the plugin owner.
+
+TallRock_2.glb and its texture set also come from the plugin owner.
+
+Processing
+----------
+- Cliff C was decimated from about 41k to about 14k triangles.
+- All textures were reduced to 1024 px and embedded in the GLB files.
+- Materials were rebuilt with the supplied base colour, normal and roughness
+  maps; the height maps were not used at runtime.

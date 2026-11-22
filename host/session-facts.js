@@ -1,6 +1,4 @@
-// Pure folding of durable session events into token, turn and metering facts.
 
-/** The one status vocabulary the renderer knows how to turn into a hull state. */
 export const STATUS = Object.freeze({
   working: 'working',
   waiting: 'waiting',
@@ -41,7 +39,6 @@ export function sumBuckets(buckets) {
   return total
 }
 
-/** The last `usage` chunk of one compact Assistant stream, read as plain JSON. */
 function lastStreamUsage(stream) {
   if (!Array.isArray(stream)) return undefined
   for (let index = stream.length - 1; index >= 0; index -= 1) {
@@ -53,10 +50,6 @@ function lastStreamUsage(stream) {
   return undefined
 }
 
-/**
- * The usage sample one durable settlement reports, mirroring the tokenUsage fold:
- * an explicit `data.usage` wins, otherwise the stream's last `usage` chunk.
- */
 export function usageOfEvent(event) {
   const data = event?.data
   if (!data || typeof data !== 'object') return undefined
@@ -65,10 +58,6 @@ export function usageOfEvent(event) {
   return lastStreamUsage(data.stream)
 }
 
-/**
- * Map provider usage onto the four buckets the tokenUsage projection publishes.
- * Raw `TokenUsage.inputTokens` is the uncached prompt count.
- */
 export function bucketsOf(usage) {
   const pick = (key) => {
     const value = usage?.[key]
@@ -82,7 +71,6 @@ export function bucketsOf(usage) {
   }
 }
 
-/** One fold state for a Session that has not been read yet. */
 export function createFoldState() {
   return {
     readable: false,
@@ -106,14 +94,12 @@ function resetFoldState(state, inheritedEventCount) {
   state.firstUserAt = null
 }
 
-/** Read one event without copying the log; the cursor keeps this at O(new events). */
 function eventAtOf(session, seq) {
   if (typeof session?.eventAt === 'function') return session.eventAt(seq)
   if (typeof session?.snapshotEvents === 'function') return session.snapshotEvents(seq, seq + 1)[0]
   return undefined
 }
 
-/** Fold one committed event, following the tokenUsage projection's replace and retry rules. */
 function applyEventFacts(state, event) {
   const type = event?.type
   if (type === 'turn/start') {
@@ -158,13 +144,6 @@ function applyEventFacts(state, event) {
   state.lastUsage = { turn: data?.turn, step: data?.step, buckets }
 }
 
-/**
- * Advance one Session's facts through its own events, starting at the fork cut.
- *
- * The tokenUsage projection folds the whole log, so a fork-seeded child's totals
- * include the inherited prefix; this fold skips it and reads only events past the
- * cursor. A gap throws, because a partial fold is not a complete read.
- */
 export function foldSessionFacts(state, session) {
   const inherited = countOf(session?.inheritedEventCount)
   const end = countOf(session?.seq)
@@ -185,14 +164,6 @@ export function foldSessionFacts(state, session) {
   return state
 }
 
-/**
- * Turn one Session's facts into the shared status word.
- *
- * A closed Turn is the only terminal evidence accepted here: a normal close
- * completes a one-shot child and leaves a continuable child waiting, an abort or
- * interruption cancels, an error or token ceiling fails. `blocked`, an unclosed
- * turn, and an unread Session stay `waiting`; inactive proves nothing.
- */
 export function statusOfFacts(facts, mode) {
   if (!facts || facts.readable !== true) return STATUS.unavailable
   if (facts.turnOpen === true) return STATUS.working

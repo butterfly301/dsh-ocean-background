@@ -72,6 +72,7 @@ insert:
 - **主船** Stylized Pirate Ship：Maksim Batyrev，CC BY 4.0。已移除原水面、替换帆材质为米白帆布、关闭帆面自发光，并为每面帆烘焙收帆形态。[来源](https://sketchfab.com/3d-models/stylized-pirate-ship-1c62191534174bf7a67470fb02b97db1)
 - **小艇** Row Boat：Sk1tle，CC BY 4.0。按船队尺寸缩放、对齐水线、材质未改动；工作时桨轻微摆动。[来源](https://sketchfab.com/3d-models/row-boat-1152ce68ca0e4e78bbd93a10c47056e5)
 - **椰子树** Coconut palm：3D Assets，CC0 1.0。[来源](https://3dassets.dev/assets/tropical-island-ecology-coconut-palm-tall-7b181376)
+- **礁石** Cliff C、Rock Formation D、TallRock 2：由用户提供的免费礁石素材，已转为 GLB 并把贴图压到 1K，只用于岩岛与礁石群；来源与处理说明见 `runtime/assets/rocks/SOURCE.txt`。
 - **three.js**：three.js authors，MIT，随包附带于 `runtime/vendor`，全文见其中的 `THREE-LICENSE.txt`。
 
 ## License

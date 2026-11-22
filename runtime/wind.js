@@ -2,15 +2,13 @@ import * as THREE from 'three';
 import { createWindLine, smoothstep } from './wind-motion.js';
 import { disposeObject3D } from './resources.js';
 
-// Every ribbon extends past both screen edges. Widths are CSS pixels, including
-// soft edges, so wide windows and camera distance cannot turn them into hairlines.
 const LAYERS = [
-  { depth: 9, count: 1, widthPx: [6, 8], band: [-0.75, 0.10], delay: [0, 0], opacity: [0.62, 0.78], foreground: true },
-  { depth: 34, count: 1, widthPx: [4, 6], band: [-0.25, 0.20], delay: [1.2, 2.4], opacity: [0.40, 0.54], foreground: false },
+  { depth: 9, count: 1, widthPx: [2.5, 3.5], band: [-0.72, 0.08], delay: [0, 0], opacity: [0.13, 0.20], foreground: true },
+  { depth: 34, count: 1, widthPx: [2, 3], band: [-0.24, 0.20], delay: [1.2, 2.4], opacity: [0.10, 0.16], foreground: false },
 ];
 const STEPS = 32;
-const SEA_COLOR = new THREE.Color('#e2f0ed');
-const SKY_COLOR = new THREE.Color('#567f90');
+const SEA_COLOR = new THREE.Color('#cfe7e2');
+const SKY_COLOR = new THREE.Color('#7fa9b8');
 const pick = ([min, max]) => min + Math.random() * (max - min);
 
 function makeStreakTexture() {
@@ -24,8 +22,6 @@ function makeStreakTexture() {
     const softness = 1 - smoothstep(0.72, 1, across);
     for (let x = 0; x < canvas.width; x += 1) {
       const u = (x + 0.5) / canvas.width;
-      // Fade only outside the visible viewport. Both screen edges retain the
-      // line's full body instead of exposing tapered ends within the picture.
       const ends = smoothstep(0, 0.06, u) * (1 - smoothstep(0.94, 1, u));
       const offset = (y * canvas.width + x) * 4;
       img.data[offset] = 255;
@@ -60,8 +56,6 @@ function makeRibbon() {
   return geometry;
 }
 
-// The endpoints and middle deform at different times during each gust.
-// Horizontal coordinates remain outside both edges throughout its lifetime.
 function shapeRibbon(geometry, points, halfHeight, aspect, widthPx, viewportHeight) {
   const position = geometry.getAttribute('position');
   const halfWidth = halfHeight * aspect;

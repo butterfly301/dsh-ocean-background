@@ -1,5 +1,3 @@
-// Full-width wind deforms from right to left during each gust. Its endpoints
-// move at different times and the broad bow changes separately in the middle.
 const EDGE = 1.28;
 
 export function smoothstep(min, max, value) {
@@ -66,8 +64,6 @@ export function createWindLine({ band, startDelay = 0, pointCount = 33, random =
         return sample;
       }
 
-      // The right end responds first, then the left. A separate middle bow
-      // grows and relaxes, so the line cannot move as a rigid horizontal bar.
       const left = lerp(gust.left.from, gust.left.to, smoothstep(gust.lag, gust.duration, age));
       const right = lerp(gust.right.from, gust.right.to, smoothstep(0, gust.duration - gust.lag, age));
       const peakAt = gust.duration * 0.52;
@@ -78,8 +74,6 @@ export function createWindLine({ band, startDelay = 0, pointCount = 33, random =
       for (let i = 0; i < pointCount; i += 1) {
         const t = i / (pointCount - 1);
         const x = t * 2 - 1;
-        // A bounded asymmetry keeps one broad curve with no repeated peaks,
-        // troughs or S-shaped sections, even as the ends change independently.
         sample.points[i * 2] = x * EDGE;
         sample.points[i * 2 + 1] = lerp(left, right, t)
           + bow * (1 - x * x) * (1 + skew * x);

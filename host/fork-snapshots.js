@@ -1,4 +1,3 @@
-// The host integration for fork-time mileage snapshots is isolated here.
 import { readService, notifyOnce, logOnce, describeError, resolveMileageTarget } from './session-state.js'
 
 const FORK_OWNER = Symbol.for('ocean-background.fork-snapshot')

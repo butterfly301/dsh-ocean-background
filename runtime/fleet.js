@@ -1,13 +1,3 @@
-// Formation and turn-state rules for the crew boats.
-//
-// Deliberately free of three.js: these are the rules that are easy to get wrong
-// and are exercised directly by the unit tests. boats.js is the thin adapter
-// that moves meshes according to what this module decides.
-//
-// Berths are laid out in the camera's local frame: x is along the ship's course
-// relative to the vessel root, z is across it. The visible span is supplied by
-// the caller, so a few boats always sit near the middle of the picture instead
-// of being scattered by a hash into slots that are already off screen.
 
 export const CHILD_STATUS = Object.freeze([
   'working',
@@ -21,9 +11,6 @@ export const CHILD_STATUS = Object.freeze([
 const KNOWN = new Set(CHILD_STATUS);
 const TERMINAL = new Set(['completed', 'failed', 'cancelled']);
 
-// The camera looks from z = +cameraDistance toward the ship, so +z is the near
-// side of the hull and -z the far side. Columns step wider than the dinghy is
-// long, lanes wider than it is broad, so two berths can never overlap a hull.
 export const FORMATION = Object.freeze({
   shipLength: 10,
   boatLength: 3.4,
@@ -32,9 +19,6 @@ export const FORMATION = Object.freeze({
   sideNear: 5.4,
   sideStep: 3.6,
   edgeInset: 2.4,
-  // Scatter: enough to break the grid, never enough to let hulls overlap. A
-  // column gap of 5.0 minus twice 0.6 still clears the 3.4 long hull, and a
-  // ring step of 3.6 minus twice 0.55 still clears the 2.2 wide one.
   jitterX: 0.6,
   jitterZ: 0.55,
   jitterYaw: 0.18,
@@ -43,10 +27,6 @@ export const FORMATION = Object.freeze({
   driftZ: 0.16,
 });
 
-// A fallback span for a default lens and a camera lead of five units. It is
-// deliberately narrower than the true 16:9 frustum so it also survives the
-// host's +/- camera offset. Real callers pass a span derived from the live
-// camera through the getView callback.
 export const DEFAULT_VIEW = Object.freeze({ minX: -8, maxX: 18 });
 
 const COLUMN_CACHE_LIMIT = 4;
@@ -62,7 +42,6 @@ function normalizeView(view) {
 
 function computeColumns(view) {
   const halfSpan = Math.max(0, (view.maxX - view.minX) / 2);
-  // A span narrower than the inset still yields one safe central column.
   const inset = Math.min(FORMATION.edgeInset, Math.max(0, halfSpan - 0.1));
   const lo = view.minX + inset;
   const hi = view.maxX - inset;
@@ -76,8 +55,6 @@ function computeColumns(view) {
       xs.push(lo + (span * index) / (count - 1));
     }
   }
-  // Fill the most central column first so the first few boats are the ones the
-  // camera is actually looking at.
   const center = (lo + hi) / 2;
   return xs
     .map((x, index) => ({ x, index, distance: Math.abs(x - center) }))
@@ -103,8 +80,6 @@ function hash32(value) {
   return hash >>> 0;
 }
 
-// Deterministic per-slot randomness: a boat keeps its offset for its whole
-// life, so the scatter never flickers, and two fleets do not share one pose.
 function unitFor(slot, salt) {
   return (hash32(Math.imul(slot + 1, 2654435761) ^ salt) >>> 8) / 16777216;
 }
@@ -113,11 +88,6 @@ function centered(slot, salt, amount) {
   return (unitFor(slot, salt) * 2 - 1) * amount;
 }
 
-// Pure berth for a slot in the fleet-local frame. Slot 0 and 1 are the near and
-// far side of the central column; slots then fill the remaining columns of that
-// ring and only start a new, deeper ring once the visible band is used up.
-// Every berth carries its own small offset, heading and scale so the fleet
-// reads as boats moored in loose formation rather than a marching grid.
 export function berthForSlot(slot, view = DEFAULT_VIEW) {
   const columns = columnsForView(view);
   const normalized = Math.max(0, Math.floor(Number.isFinite(slot) ? slot : 0));
@@ -148,14 +118,8 @@ function hashIdentity(identity) {
   return hash >>> 0;
 }
 
-// The stateless helper has no roster to count, so it previews within the first
-// visible band. Allocation of a real fleet goes through createBerthAllocator.
 const PREVIEW_SLOTS = 8;
 
-// Converts a live camera into the horizontal span the formation may use, in the
-// same fleet-local frame as berth positions. cameraX is in that frame too: for
-// the ocean plugin that is camera.position.x - vesselRoot.position.x. fovDeg is
-// three.js's vertical fov in degrees; aspect is the drawing buffer aspect.
 export function viewForCamera({
   cameraX,
   shipX = 0,
@@ -165,7 +129,6 @@ export function viewForCamera({
   margin = 0.86,
 } = {}) {
   const lead = Number.isFinite(cameraX) ? cameraX : 5;
-  // Solve the span at the nearest lane, where the frustum is tightest.
   const nearestDepth = Math.max(1, (Number.isFinite(cameraDistance) ? cameraDistance : 44) - FORMATION.sideNear);
   const halfVertical = Math.tan(((Number.isFinite(fovDeg) ? fovDeg : 34) * Math.PI) / 360);
   const safeAspect = Math.max(0.2, Number.isFinite(aspect) ? aspect : 16 / 9);
@@ -191,8 +154,6 @@ export function createBerthAllocator() {
     return slot;
   }
 
-  // Reserve returns the berth in world-local coordinates: shipX offsets the
-  // formation, while the view decides which columns are usable.
   function reserve(identity, shipX = 0, nextView) {
     if (nextView !== undefined) setView(nextView);
     const id = String(identity);
@@ -229,8 +190,6 @@ export function createBerthAllocator() {
   };
 }
 
-// String identities use a deterministic preview berth. Numeric input remains
-// accepted as a compatibility seam for callers that already hold a roster index.
 export function berthPosition(identity, shipX = 0, view = DEFAULT_VIEW) {
   const slot = typeof identity === 'number'
     ? Math.max(0, Math.floor(identity))

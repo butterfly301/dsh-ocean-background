@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createOcean } from './ocean.js';
-import { waveHeightAt, waveSlopeAt } from './wave-field.js';
+import { sampleWaveAt } from './wave-field.js';
 import { disposeObject3D } from './resources.js';
 import { createSky } from './sky.js';
 import { loadShip, loadDinghy } from './ship.js';
@@ -20,15 +20,11 @@ import {
 
 const params = new URLSearchParams(location.search);
 
-// Inside the app the host already lays its own veil over this page, so the
-// renderer adds almost none: two half-strengths multiply into a washed-out sea.
 const EMBEDDED = window.parent !== window;
 if (EMBEDDED) document.documentElement.classList.add('embedded');
 const reducedMotion = typeof window.matchMedia === 'function'
   && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// The host owns these settings. Nothing heavy starts until the first message
-// says the picture is wanted, so a disabled background never loads the models.
 const DEFAULTS = Object.freeze({
   enabled: true,
   strength: 0.72,
@@ -42,26 +38,29 @@ const DEFAULTS = Object.freeze({
   cameraXOffset: 0,
 });
 
-// One palette object so the sky, the water and the haze can never disagree.
 const PALETTE = {
-  skyZenith: '#5c9cc6',
-  skyHorizon: '#dceef2',
-  sunDir: new THREE.Vector3(-0.42, 0.30, -0.86).normalize(),
-  sunColor: '#fff2dc',
-  deep: '#093a47',
-  shallow: '#4fa6a4',
-  foam: '#eefafa',
+  skyZenith: '#3f87bd',
+  skyHorizon: '#b6dbe8',
+  sunDir: new THREE.Vector3(-0.48, 0.20, -0.85).normalize(),
+  sunColor: '#fff0d2',
+  deep: '#1f5d78',
+  shallow: '#4e9fba',
+  foam: '#bfe0dc',
 };
 
-// The hull stays near the camera's follow point while its world position advances.
 const SHIP_X = 0;
+
+function seaAmplitudeFor(level) {
+  const t = Math.min(1, Math.max(0, (Number(level) - 25) / 75));
+  return 0.5 + 2.0 * t ** 1.5;
+}
 
 const uniforms = {
   uTime: { value: 0 },
   uFlow: { value: 0 },
-  uSea: { value: 0.25 + (25 / 100) * 1.5 },
+  uSea: { value: seaAmplitudeFor(25) },
   uFoam: { value: 0 },
-  uCloud: { value: 0.5 },
+  uCloud: { value: 0.75 },
   uSkyZenith: { value: new THREE.Color(PALETTE.skyZenith) },
   uSkyHorizon: { value: new THREE.Color(PALETTE.skyHorizon) },
   uSunDir: { value: PALETTE.sunDir.clone() },
@@ -76,8 +75,6 @@ const uniforms = {
 };
 
 const settings = { ...DEFAULTS };
-// Kept apart from `settings` so the last value survives until the runtime
-// boots. undefined means "the host never sent a session", null means "none".
 let pendingSession;
 let quality = settings.quality;
 const clock = createFrameClock({ targetFps: targetFpsForQuality(quality) });
@@ -131,8 +128,6 @@ function wantsAnimation() {
 
 function ensureBoot() {
   if (booted || bootFailed || disposed) return;
-  // Embedded, the host's first message decides whether the picture is wanted at
-  // all; booting on our own would load the models behind a disabled setting.
   if (EMBEDDED && !settingsReceived) return;
   if (!settings.enabled || !settings.visible || document.hidden) return;
   try {
@@ -143,8 +138,6 @@ function ensureBoot() {
     console.error('[ocean] renderer failed to start', error);
   }
 }
-
-// ---- boot --------------------------------------------------------------------
 
 function boot() {
   stage = document.getElementById('stage');
@@ -161,13 +154,9 @@ function boot() {
   if (stage) stage.appendChild(renderer.domElement);
 
   scene = new THREE.Scene();
-  // Distance haze for the scenery models. The custom water and sky shaders carry
-  // their own haze; this fog only reaches the islands and reefs, and its
-  // near plane sits well beyond the ship so the hull stays crisp.
-  scene.fog = new THREE.Fog('#d6e9ef', 170, 620);
+  scene.fog = new THREE.Fog(PALETTE.skyHorizon, 60, 450);
   camera = new THREE.PerspectiveCamera(34, window.innerWidth / Math.max(1, window.innerHeight), 0.5, 3000);
   applyCamera();
-  // The wind rides in camera space so its on-screen size never depends on zoom.
   scene.add(camera);
 
   vesselRoot = new THREE.Group();
@@ -183,8 +172,8 @@ function boot() {
   sky = createSky(uniforms);
   scene.add(sky);
   ocean = createOcean(uniforms, {
-    size: 900,
-    segments: quality === 'high' ? 280 : 220,
+    size: 1200,
+    segments: quality === 'high' ? 300 : 240,
   });
   scene.add(ocean);
 
@@ -213,8 +202,6 @@ function boot() {
 
   booted = true;
 
-  // One real frame before the models arrive: the host only makes its shell
-  // translucent after this message, and a paused setting must not stall it.
   renderFrame(0);
   syncLifecycle();
 }
@@ -258,8 +245,6 @@ function attachFleet() {
   fleet = createFleet({
     scene: vesselRoot,
     makeDinghy: () => dinghy.make(),
-    // Boats are laid out in the visible water, not in a fixed grid, so a narrow
-    // window or a dragged camera keeps the whole small fleet on screen.
     getView: () => {
       if (!camera || !vesselRoot) return undefined;
       return viewForCamera({
@@ -270,9 +255,6 @@ function attachFleet() {
       });
     },
   });
-  // The roster can arrive before the models finish loading, and the poller only
-  // reports changes. Without this the children already running at load time never
-  // got a boat, and nothing would retry until the roster happened to change again.
   const children = seaState ? seaState.state.fleet : [];
   const rootId = seaState ? seaState.state.sessionId : null;
   fleet.sync(children, { shipX: SHIP_X, rootId });
@@ -288,12 +270,8 @@ function handleFleet(children, info) {
 
 function handleSession({ sessionId }) {
   if (!fleet) return;
-  // The root really changed: no boat from the old fleet may stay on the water,
-  // even if the new roster happens to be empty.
   fleet.sync([], { shipX: SHIP_X, rootId: sessionId });
 }
-
-// ---- frame -------------------------------------------------------------------
 
 function renderFrame(dt, credit = true) {
   if (disposed || !renderer || !scene || !camera) return;
@@ -307,9 +285,7 @@ function renderFrame(dt, credit = true) {
 
   if (seaState) seaState.relax(seconds);
   const state = seaState ? seaState.state : null;
-  // The sea value is a percentage, exactly like the reference skin's slider; the
-  // uniform it feeds is the 0.25–1.75 amplitude range that slider maps to.
-  const seaTarget = 0.25 + ((state ? state.sea : 25) / 100) * 1.5;
+  const seaTarget = seaAmplitudeFor(state ? state.sea : 25);
   const seaBlend = seconds > 0 ? Math.min(1, seconds / 0.3) : 1;
   uniforms.uSea.value += (seaTarget - uniforms.uSea.value) * seaBlend;
   const foamTarget = state ? state.foam : 0;
@@ -318,7 +294,6 @@ function renderFrame(dt, credit = true) {
   uniforms.uTime.value = elapsed;
   uniforms.uFlow.value = reducedMotion ? 0 : elapsed;
 
-  // Full canvas while the agent works, a partly rolled sail while it waits.
   const furlTarget = state && state.agentRunning ? 0 : 0.42;
   const furlBlend = seconds > 0 ? Math.min(1, seconds / 1.6) : 1;
   shipFurl += (furlTarget - shipFurl) * furlBlend;
@@ -348,16 +323,12 @@ function bobShip() {
   const time = uniforms.uTime.value;
   const flow = uniforms.uFlow.value;
   const worldX = toWorldX(SHIP_X, travelX);
-  const h = waveHeightAt(worldX, 0, time, flow, sea);
-  const slope = waveSlopeAt(worldX, 0, time, flow, sea);
-  ship.pivot.position.y = h * 0.92 - 0.15;
-  ship.pivot.rotation.z = -slope.dx * 0.75;
-  ship.pivot.rotation.x = slope.dz * 1.15;
+  const wave = sampleWaveAt(worldX, 0, time, flow, sea);
+  ship.pivot.position.y = wave.height * 0.92 - 0.15;
+  ship.pivot.rotation.z = -wave.dx * 0.75;
+  ship.pivot.rotation.x = wave.dz * 1.15;
 }
 
-// The host only makes its shell translucent after this message. It follows an
-// actual render, so a renderer that failed to start can never leave a blank
-// window behind.
 function announceReady() {
   if (announced) return;
   announced = true;
@@ -380,9 +351,6 @@ function syncLifecycle() {
   if (wantsAnimation()) {
     if (!loopOn) {
       loopOn = true;
-      // Draw at the display's pace, capped by the quality target. The first
-      // sample after a resume draws with no elapsed time instead of replaying
-      // the paused interval.
       clock.reset(performance.now());
       renderer.setAnimationLoop(frameLoop);
     }
@@ -396,11 +364,8 @@ function syncLifecycle() {
     renderer.setAnimationLoop(null);
   }
   voyage?.flush();
-  // A paused picture still stops polling: nothing on screen consumes the data.
   seaState.pause();
 
-  // Persisted pause: make sure the complete picture, including late models,
-  // reaches the screen once. Hidden or disabled waits until it is shown again.
   if (owesStillFrame({
     booted: true,
     enabled: settings.enabled,
@@ -414,12 +379,9 @@ function syncLifecycle() {
   }
 }
 
-// ---- settings ----------------------------------------------------------------
-
 function applyCamera() {
   if (!camera) return;
   camera.position.set(cameraXForShip(travelX, SHIP_X, settings.cameraXOffset), settings.cameraHeight, settings.cameraDistance);
-  // Positive pitch looks down. Yaw and roll stay fixed as the position changes.
   camera.rotation.set(-THREE.MathUtils.degToRad(settings.cameraPitch), 0, 0);
 }
 
@@ -440,8 +402,6 @@ function syncWorldPosition() {
 function applyQuality() {
   quality = settings.quality;
   if (!renderer) return;
-  // Same quality never resizes: the host reloads the frame when it wants new
-  // ocean geometry, and a redundant setSize would only reallocate buffers.
   renderer.setPixelRatio(pixelRatioFor(quality));
   renderer.setSize(window.innerWidth, window.innerHeight);
   clock.setTargetFps(targetFpsForQuality(quality));
@@ -487,8 +447,6 @@ function applySettings(next) {
       stillFrameNeeded = true;
     }
     if (settings.quality !== previousQuality) applyQuality();
-    // The session may be a child of the root; setSession only re-asks the host,
-    // and the fleet resets when the answered root actually changes.
     if (hasSession) seaState.setSession(pendingSession);
   }
 
@@ -512,12 +470,9 @@ function onResize() {
 
 function onVisibility() {
   if (disposed) return;
-  // Standalone, a page loaded in a hidden tab still has to start once shown.
   ensureBoot();
   syncLifecycle();
 }
-
-// ---- teardown ----------------------------------------------------------------
 
 function dispose() {
   if (disposed) return;
@@ -541,7 +496,6 @@ function dispose() {
   try { fleet?.dispose(); } catch {}
   try { wind?.dispose(); } catch {}
   try { scenery?.dispose(); } catch {}
-  // The dinghy source never sits in the scene; the fleet only holds clones of it.
   try { disposeObject3D(dinghy?.pivot, scene); } catch {}
 
   if (renderer) {
@@ -567,8 +521,6 @@ function dispose() {
   booted = false;
 }
 
-// ---- wiring ------------------------------------------------------------------
-
 window.addEventListener('message', onMessage);
 window.addEventListener('resize', onResize);
 document.addEventListener('visibilitychange', onVisibility);
@@ -576,13 +528,8 @@ window.addEventListener('pagehide', dispose);
 
 document.documentElement.style.setProperty('--ocean-strength', String(settings.strength));
 
-// Standalone, without a host page, the sea simply shows with its defaults.
-// Embedded, the first settings message boots it.
 if (!EMBEDDED) ensureBoot();
 
-// A verification hook: a hidden tab throttles requestAnimationFrame to a crawl,
-// so the scene has to be steppable by hand to inspect an arrival, a departure or
-// a sail change without waiting for a visible window.
 function advance(seconds, step = 0.05) {
   let left = Math.max(0, seconds);
   while (left > 0) {
@@ -598,6 +545,11 @@ if (!EMBEDDED || params.get('debug') === '1') {
     uniforms,
     dispose,
     applySettings,
+    boot: () => {
+      if (booted || disposed) return;
+      settingsReceived = true;
+      boot();
+    },
     setRunning: (value) => applySettings({ running: value }),
     setSession: (sessionId) => applySettings({ sessionId }),
     get settings() { return { ...settings }; },
@@ -608,8 +560,6 @@ if (!EMBEDDED || params.get('debug') === '1') {
     get booted() { return booted; },
     get announced() { return announced; },
     get travelX() { return travelX; },
-    // Read-only handles for verification: neither state has another way to be
-    // inspected without a live agent driving it.
     get ship() { return ship; },
     get fleet() { return fleet; },
     get voyage() { return voyage; },

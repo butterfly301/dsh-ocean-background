@@ -1,13 +1,8 @@
-// Pure surface data for the scenery archetypes.
-//
-// No three.js import: the shape and the archetype distribution can be exercised
-// by node tests, while the renderer only turns the arrays into buffer geometry.
-// Every builder is deterministic for a given seed, so a recycled island can pick
-// a fresh silhouette without rebuilding the world.
 
 const TAU = Math.PI * 2;
 
-/** Island silhouettes, in weighted-pick order. */
+// rocky-island has no profile here on purpose: scenery.js builds it from the
+// supplied GLB rock models, while the other three archetypes stay procedural.
 export const ISLAND_ARCHETYPES = [
   'sandbar-crescent',
   'sandbar-shoal',
@@ -15,7 +10,6 @@ export const ISLAND_ARCHETYPES = [
   'rocky-island',
 ];
 
-/** Low sandbars together hold the majority so most passes stay flat. */
 export const ISLAND_ARCHETYPE_WEIGHTS = {
   'sandbar-crescent': 0.34,
   'sandbar-shoal': 0.34,
@@ -23,16 +17,7 @@ export const ISLAND_ARCHETYPE_WEIGHTS = {
   'rocky-island': 0.14,
 };
 
-/** Reef silhouettes: mostly squat stones, rarely a sea stack. */
-export const REEF_ARCHETYPES = ['squat', 'sea-stack'];
 
-export const REEF_ARCHETYPE_WEIGHTS = {
-  squat: 0.86,
-  'sea-stack': 0.14,
-};
-
-// Muted sea-and-sail palette: sand and rock sit close to the haze, the greens
-// stay grey rather than tropical, so the scenery never out-shouts the ship.
 const SAND_WET_DARK = '#7f7f74';
 const SAND_WET = '#9c998a';
 const SAND = '#b4af9e';
@@ -44,14 +29,6 @@ const GREEN_DARK = '#5f6f59';
 const GREEN = '#6f7f66';
 const GREEN_LIGHT = '#87937a';
 const GREEN_TOP = '#94a083';
-const ROCK_DARK = '#697473';
-const ROCK = '#77817f';
-const ROCK_LIGHT = '#89928e';
-const ROCK_TOP = '#98a09a';
-const MOSS = '#7b866c';
-const REEF_WET = '#65716f';
-const REEF_BODY = '#75807d';
-const REEF_TOP = '#89938c';
 
 function srgbToLinear(channel) {
   const value = channel / 255;
@@ -71,8 +48,6 @@ const COLORS = new Map(
   [
     SAND_WET_DARK, SAND_WET, SAND, SAND_LIGHT, SAND_PALE, SAND_TOP,
     GRASS_EDGE, GREEN_DARK, GREEN, GREEN_LIGHT, GREEN_TOP,
-    ROCK_DARK, ROCK, ROCK_LIGHT, ROCK_TOP, MOSS,
-    REEF_WET, REEF_BODY, REEF_TOP,
   ].map(hex => [hex, linearColor(hex)]),
 );
 
@@ -80,8 +55,35 @@ function colorOf(hex) {
   return COLORS.get(hex);
 }
 
+function hash2(x, y) {
+  let h = Math.imul(x | 0, 374761393) ^ Math.imul(y | 0, 668265263);
+  h = Math.imul(h ^ (h >>> 13), 1274126177);
+  return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
+}
+
+function noise2(x, y) {
+  const ix = Math.floor(x);
+  const iy = Math.floor(y);
+  const fx = x - ix;
+  const fy = y - iy;
+  const ux = fx * fx * (3 - 2 * fx);
+  const uy = fy * fy * (3 - 2 * fy);
+  const a = hash2(ix, iy);
+  const b = hash2(ix + 1, iy);
+  const c = hash2(ix, iy + 1);
+  const d = hash2(ix + 1, iy + 1);
+  return a + (b - a) * ux + (c - a) * uy + (a - b - c + d) * ux * uy;
+}
+
+function mixColor(a, b, t) {
+  return [
+    a[0] + (b[0] - a[0]) * t,
+    a[1] + (b[1] - a[1]) * t,
+    a[2] + (b[2] - a[2]) * t,
+  ];
+}
+
 const ISLAND_PROFILES = {
-  // A long, curved bank that hooks away from its own crest.
   'sandbar-crescent': {
     segments: 30,
     rings: [
@@ -94,11 +96,12 @@ const ISLAND_PROFILES = {
     ],
     wobble: { a: 0.08, b: 0.05, c: 0.03, y: 0.035, lobe: 0.2, phase: 0.55 },
     bend: { x: -2.4, z: 0.9 },
+    roughness: 0.035,
+    roughnessY: 0.020,
     centerY: 0.62,
     vegetation: 1,
     palmScale: 0.62,
   },
-  // A broad, very low shoal with almost no centre mound.
   'sandbar-shoal': {
     segments: 28,
     rings: [
@@ -111,11 +114,12 @@ const ISLAND_PROFILES = {
     ],
     wobble: { a: 0.06, b: 0.04, c: 0.025, y: 0.03, lobe: 0.05, phase: 2.1 },
     bend: { x: 0.9, z: -0.4 },
+    roughness: 0.030,
+    roughnessY: 0.018,
     centerY: 0.52,
     vegetation: 1,
     palmScale: 0.6,
   },
-  // A rounded, vegetated hill: green rings over a sand shore.
   'green-island': {
     segments: 32,
     rings: [
@@ -129,62 +133,13 @@ const ISLAND_PROFILES = {
     ],
     wobble: { a: 0.09, b: 0.05, c: 0.03, y: 0.06, lobe: 0.05, phase: 1.2 },
     bend: { x: 0.5, z: 0.3 },
+    roughness: 0.045,
+    roughnessY: 0.030,
     centerY: 3.7,
     vegetation: 4,
     palmScale: 0.64,
   },
-  // Stepped, grey cliffs: a different surface from the soft green island.
-  'rocky-island': {
-    segments: 26,
-    rings: [
-      { rx: 8.2, rz: 6.4, y: -1.1, color: ROCK_DARK },
-      { rx: 7.6, rz: 5.9, y: 0.1, color: ROCK },
-      { rx: 6.9, rz: 5.2, y: 0.85, color: ROCK_LIGHT },
-      { rx: 6.0, rz: 4.4, y: 1.65, color: ROCK },
-      { rx: 4.9, rz: 3.4, y: 2.35, color: ROCK_LIGHT },
-      { rx: 3.6, rz: 2.4, y: 2.95, color: ROCK_TOP },
-      { rx: 2.2, rz: 1.4, y: 3.3, color: MOSS },
-    ],
-    wobble: { a: 0.12, b: 0.07, c: 0.04, y: 0.09, lobe: 0.1, phase: 2.7 },
-    bend: { x: -0.7, z: 0.4 },
-    centerY: 3.45,
-    vegetation: 1,
-    palmScale: 0.55,
-  },
-};
 
-const REEF_PROFILES = {
-  // A flattened, partly submerged stone.
-  squat: {
-    segments: 14,
-    rings: [
-      { rx: 3.2, rz: 2.4, y: -0.6, color: REEF_WET },
-      { rx: 3.0, rz: 2.25, y: 0.05, color: REEF_BODY },
-      { rx: 2.5, rz: 1.8, y: 0.55, color: REEF_BODY },
-      { rx: 1.7, rz: 1.15, y: 0.95, color: REEF_TOP },
-      { rx: 0.9, rz: 0.6, y: 1.15, color: REEF_TOP },
-    ],
-    wobble: { a: 0.14, b: 0.08, c: 0.05, y: 0.05, lobe: 0.08, phase: 0.8 },
-    bend: { x: 0.3, z: -0.2 },
-    centerY: 1.25,
-  },
-  // A slender, slightly leaning column that stands well above the squat stones.
-  'sea-stack': {
-    segments: 12,
-    rings: [
-      { rx: 1.7, rz: 1.35, y: -0.8, color: REEF_WET },
-      { rx: 1.6, rz: 1.25, y: 0.25, color: REEF_BODY },
-      { rx: 1.45, rz: 1.1, y: 1.35, color: REEF_BODY },
-      { rx: 1.3, rz: 0.95, y: 2.5, color: REEF_TOP },
-      { rx: 1.1, rz: 0.8, y: 3.55, color: REEF_BODY },
-      { rx: 0.85, rz: 0.6, y: 4.35, color: REEF_TOP },
-      { rx: 0.55, rz: 0.4, y: 4.8, color: REEF_TOP },
-      { rx: 0.3, rz: 0.2, y: 5.0, color: REEF_TOP },
-    ],
-    wobble: { a: 0.09, b: 0.05, c: 0.03, y: 0.08, lobe: 0.05, phase: 2.3 },
-    bend: { x: 0.55, z: -0.25 },
-    centerY: 5.05,
-  },
 };
 
 function pickWeighted(ids, weights, random, excluded) {
@@ -205,47 +160,47 @@ function pickWeighted(ids, weights, random, excluded) {
   return candidates[candidates.length - 1];
 }
 
-/**
- * Pick an island silhouette, avoiding the ones already on screen when a
- * different one is still available.
- * @param random - source of random numbers, injectable for tests.
- * @param excluded - archetypes currently visible.
- * @returns one id from ISLAND_ARCHETYPES.
- */
 export function chooseIslandArchetype(random = Math.random, excluded = []) {
   return pickWeighted(ISLAND_ARCHETYPES, ISLAND_ARCHETYPE_WEIGHTS, random, excluded);
 }
 
-/**
- * Pick a reef silhouette. Sea stacks stay occasional.
- * @param random - source of random numbers, injectable for tests.
- * @param excluded - archetypes to avoid, if any.
- * @returns one id from REEF_ARCHETYPES.
- */
-export function chooseReefArchetype(random = Math.random, excluded = []) {
-  return pickWeighted(REEF_ARCHETYPES, REEF_ARCHETYPE_WEIGHTS, random, excluded);
-}
-
-/**
- * Turn a ring profile into a closed, coloured surface.
- *
- * Rings are stacked from the wet skirt to the crest. The centre vertex caps the
- * top so the mesh can be read from above as well as from the side.
- */
 function buildRingSurface(profile, seed) {
-  const { rings, segments, wobble, bend } = profile;
+  const {
+    rings,
+    segments,
+    wobble,
+    bend,
+    roughness = 0.06,
+    roughnessY = 0.035,
+    capScale = 0.45,
+    capLift = 0.55,
+  } = profile;
+
+  // A small extra ring under the summit rounds the top cap. Without it every
+  // island ends in a single fan of long triangles, which is what made the
+  // close-up rocks read as flat grey pyramids.
+  const lastRing = rings[rings.length - 1];
+  const capRing = {
+    rx: lastRing.rx * capScale,
+    rz: lastRing.rz * capScale,
+    y: lastRing.y + (profile.centerY - lastRing.y) * capLift,
+    color: lastRing.color,
+  };
+  const surfaceRings = [...rings, capRing];
+
   const positions = [];
   const colors = [];
   const indices = [];
   const ringCenters = [];
 
-  for (let ringIndex = 0; ringIndex < rings.length; ringIndex += 1) {
-    const ring = rings[ringIndex];
-    const rise = ringIndex / Math.max(1, rings.length - 1);
+  for (let ringIndex = 0; ringIndex < surfaceRings.length; ringIndex += 1) {
+    const ring = surfaceRings[ringIndex];
+    const rise = ringIndex / Math.max(1, surfaceRings.length - 1);
     const centerX = (bend?.x ?? 0) * rise ** 1.4;
     const centerZ = (bend?.z ?? 0) * rise ** 1.4;
     ringCenters.push({ x: centerX, z: centerZ });
-    const color = colorOf(ring.color);
+    const colorA = colorOf(ring.color);
+    const colorB = colorOf(surfaceRings[Math.min(surfaceRings.length - 1, ringIndex + 1)].color);
 
     for (let i = 0; i < segments; i += 1) {
       const angle = (i / segments) * TAU;
@@ -254,17 +209,32 @@ function buildRingSurface(profile, seed) {
         + wobble.b * Math.sin(angle * 7 - seed * 1.7)
         + wobble.c * Math.sin(angle * 11 + seed * 2.3)
         + wobble.lobe * Math.cos(angle + wobble.phase);
-      const localHeight = wobble.y * Math.sin(angle * 4 + seed + ringIndex * 1.3);
+      const baseX = Math.cos(angle) * ring.rx;
+      const baseZ = Math.sin(angle) * ring.rz;
+
+      // Two noise octaves break the smooth ring into a ragged rock outline.
+      const grain = (noise2(baseX * 0.18 + seed * 1.7, baseZ * 0.18 - seed) - 0.5) * roughness
+        + (noise2(baseX * 0.55 + seed * 3.1, baseZ * 0.55 + seed) - 0.5) * roughness * 0.45;
+      const radial = irregularity * (1 + grain * (0.45 + rise));
+      const localHeight = wobble.y * Math.sin(angle * 4 + seed + ringIndex * 1.3)
+        + (noise2(baseX * 0.42 + seed * 2.3, baseZ * 0.42 - seed * 1.1) - 0.5)
+          * roughnessY * (ringIndex === 0 ? 0.3 : 1);
+
       positions.push(
-        centerX + Math.cos(angle) * ring.rx * irregularity,
+        centerX + baseX * radial,
         ring.y + localHeight,
-        centerZ + Math.sin(angle) * ring.rz * irregularity,
+        centerZ + baseZ * radial,
       );
+
+      // Blend neighbouring ring colours per vertex instead of painting whole
+      // horizontal bands, so the cliff face is mottled rather than one slab.
+      const blend = 0.22 + 0.56 * noise2(baseX * 0.34 + seed, baseZ * 0.34 - seed * 0.7);
+      const color = mixColor(colorA, colorB, blend);
       colors.push(color[0], color[1], color[2]);
     }
   }
 
-  for (let ringIndex = 0; ringIndex < rings.length - 1; ringIndex += 1) {
+  for (let ringIndex = 0; ringIndex < surfaceRings.length - 1; ringIndex += 1) {
     const outer = ringIndex * segments;
     const inner = (ringIndex + 1) * segments;
     for (let i = 0; i < segments; i += 1) {
@@ -273,14 +243,18 @@ function buildRingSurface(profile, seed) {
     }
   }
 
-  const centerIndex = positions.length / 3;
+  // Offset the summit slightly so the last triangle fan does not converge on
+  // the exact ring centre and create a visible pin point.
+  const topOffsetX = (noise2(seed * 2.1, 0.5) - 0.5) * lastRing.rx * 0.35;
+  const topOffsetZ = (noise2(0.5, seed * 2.7) - 0.5) * lastRing.rz * 0.35;
   const topCenter = ringCenters[ringCenters.length - 1];
-  positions.push(topCenter.x, profile.centerY, topCenter.z);
-  const topColor = colorOf(rings[rings.length - 1].color);
+  const centerIndex = positions.length / 3;
+  positions.push(topCenter.x + topOffsetX, profile.centerY, topCenter.z + topOffsetZ);
+  const topColor = colorOf(capRing.color);
   colors.push(topColor[0], topColor[1], topColor[2]);
-  const lastRing = (rings.length - 1) * segments;
+  const lastStart = (surfaceRings.length - 1) * segments;
   for (let i = 0; i < segments; i += 1) {
-    indices.push(lastRing + i, centerIndex, lastRing + ((i + 1) % segments));
+    indices.push(lastStart + i, centerIndex, lastStart + ((i + 1) % segments));
   }
 
   let minX = Infinity;
@@ -304,20 +278,17 @@ function buildRingSurface(profile, seed) {
     depth: maxZ - minZ,
     maxRelief: maxY,
     top: {
-      x: topCenter.x,
+      x: topCenter.x + topOffsetX,
       y: profile.centerY,
-      z: topCenter.z,
+      z: topCenter.z + topOffsetZ,
     },
   };
 }
 
-/**
- * Deterministic island surface for one archetype.
- * @param archetype - id from ISLAND_ARCHETYPES.
- * @param seed - shape seed; the same seed always returns the same data.
- * @returns positions, colors, indices, footprint and relief.
- */
 export function buildIslandSurfaceData(archetype, seed = 0) {
+  if (archetype === 'rocky-island') {
+    throw new Error('rocky-island is assembled from rock assets, not a ring surface');
+  }
   const profile = ISLAND_PROFILES[archetype];
   if (!profile) throw new Error(`unknown island archetype: ${archetype}`);
   const surface = buildRingSurface(profile, seed);
@@ -337,27 +308,5 @@ export function buildIslandSurfaceData(archetype, seed = 0) {
       scale: profile.palmScale,
     },
     vegetation: profile.vegetation,
-  };
-}
-
-/**
- * Deterministic reef surface for one archetype.
- * @param archetype - id from REEF_ARCHETYPES.
- * @param seed - shape seed; the same seed always returns the same data.
- * @returns positions, colors, indices, footprint and relief.
- */
-export function buildReefSurfaceData(archetype, seed = 0) {
-  const profile = REEF_PROFILES[archetype];
-  if (!profile) throw new Error(`unknown reef archetype: ${archetype}`);
-  const surface = buildRingSurface(profile, seed);
-  return {
-    archetype,
-    positions: surface.positions,
-    colors: surface.colors,
-    indices: surface.indices,
-    width: surface.width,
-    depth: surface.depth,
-    maxRelief: surface.maxRelief,
-    top: surface.top,
   };
 }
