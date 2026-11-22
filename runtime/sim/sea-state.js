@@ -1,6 +1,4 @@
-// Throughput to sea state. Pure arithmetic: it consumes monotonic token
-// counters and produces the wave height, the foam amount and the smoothed rate.
-// It never touches the network, the DOM or three.js.
+
 
 export const SEA_FLOOR = 25;
 export const SEA_SPAN = 75;
@@ -9,8 +7,7 @@ export const IDLE_AFTER_MS = 2000;
 export const MIN_STEP_SECONDS = 0.05;
 
 const RATE_SMOOTHING = 4;
-// The renderer used to ease the surface toward the model with a 0.3s blend.
-// That second stage is gone, so the model's own time constant carries it.
+
 const SEA_SMOOTHING = 2.3;
 const FOAM_START_RATE = 100;
 const FOAM_FULL_RATE = 400;
@@ -19,13 +16,10 @@ function numberOrNull(value) {
   return typeof value === 'number' && Number.isFinite(value) ? value : null;
 }
 
-// Sea level runs 25..100. The shader wants a world-space amplitude, so the
-// mapping lives next to the model and is covered by tests.
 export function amplitudeForLevel(level) {
   const t = Math.min(1, Math.max(0, (Number(level) - SEA_FLOOR) / SEA_SPAN));
   return 0.5 + 2.0 * t ** 1.5;
 }
-
 
 export function createSeaState({
   now = () => Date.now(),

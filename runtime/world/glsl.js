@@ -1,30 +1,22 @@
-// Shared GLSL for the sky dome and the water surface. Both include the same
-// sky function, so the reflection in the sea and the sky behind it always
-// agree on colour and sun position.
 
-export const SKY_GLSL = /* glsl */ `
+
+export const SKY_GLSL =  `
 uniform vec3 uSkyZenith;
 uniform vec3 uSkyHorizon;
 uniform vec3 uSunDir;
 uniform vec3 uSunColor;
 
-// The renderer keeps colour management on, so colours arrive linear and the
-// raw ShaderMaterials have to encode sRGB themselves.
 vec3 linearToSRGB(vec3 c) {
   vec3 lo = c * 12.92;
   vec3 hi = 1.055 * pow(max(c, vec3(0.0)), vec3(0.4166667)) - 0.055;
   return mix(lo, hi, step(vec3(0.0031308), c));
 }
 
-// The base gradient is also used by the water reflection. Keeping the sun
-// disc out of that path stops the sea from growing a white mirror blob.
 vec3 skyBase(vec3 d) {
   float h = d.y;
   float t = pow(clamp(1.0 - max(h, 0.0), 0.0, 1.0), 4.2);
   vec3 col = mix(uSkyZenith, uSkyHorizon, t);
 
-  // A slightly deeper band right under the horizon keeps the sky from fading
-  // into a flat white strip behind the water line.
   col = mix(col, uSkyHorizon * 0.94, smoothstep(0.0, -0.10, h));
 
   vec2 dAz = normalize(vec2(d.x, d.z) + vec2(1e-6, 0.0));
@@ -38,7 +30,6 @@ vec3 skyColor(vec3 d) {
   vec3 col = skyBase(d);
   float sd = max(dot(d, uSunDir), 0.0);
 
-  // Broad daylight glow, a tight halo, then the disc itself.
   col += uSunColor * pow(sd, 8.0) * 0.05;
   col += uSunColor * pow(sd, 140.0) * 0.18;
   col += uSunColor * smoothstep(0.99980, 0.99990, sd) * 2.2;
@@ -46,7 +37,7 @@ vec3 skyColor(vec3 d) {
 }
 `;
 
-export const VALUE_NOISE_GLSL = /* glsl */ `
+export const VALUE_NOISE_GLSL =  `
 float hash21(vec2 p) {
   vec3 q = fract(vec3(p.xyx) * vec3(0.1031, 0.1030, 0.0973));
   q += dot(q, q.yzx + 33.33);
@@ -65,9 +56,6 @@ float valueNoise(vec2 p) {
 }
 `;
 
-// Value-noise gradient. The analytic derivative is cheaper and smoother than
-// four extra height samples, which is what makes the fine ripple normals
-// affordable at a stable frame rate.
 export const NOISE_GLSL = `${VALUE_NOISE_GLSL}
 vec2 valueNoiseGrad(vec2 p) {
   vec2 i = floor(p);

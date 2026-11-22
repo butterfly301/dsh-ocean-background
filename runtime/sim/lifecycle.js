@@ -1,6 +1,5 @@
-// One reducer decides what the renderer should do. Every boolean that used to
-// gate the loop lives in the input, so the transitions are testable without a
-// renderer.
+
+
 
 export const MODE = Object.freeze({
   idle: 'idle',

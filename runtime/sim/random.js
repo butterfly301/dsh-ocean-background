@@ -1,5 +1,4 @@
-// Small deterministic PRNG so scenery, wind and fleet jitter can be replayed.
-// Test and screenshot runs pass a seed; normal runs keep Math.random.
+
 
 export function seedFromString(text) {
   let hash = 2166136261;

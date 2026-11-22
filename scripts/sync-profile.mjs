@@ -3,10 +3,6 @@ import { homedir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-// Mirrors the working tree into the desktop profile so the running app and the
-// repository cannot drift. The target must be the plugin directory inside a
-// profile's node_modules; anything else is refused.
-
 const ROOT = resolve(fileURLToPath(new URL('..', import.meta.url)));
 const target = resolve(
   process.env.DSH_OCEAN_TARGET

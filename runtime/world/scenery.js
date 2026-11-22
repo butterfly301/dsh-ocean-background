@@ -24,8 +24,7 @@ const ROCKY_ISLAND = 'rocky-island';
 const PALM_NAME = 'island-coconut-palm';
 const TAU = Math.PI * 2;
 
-// Rotations derived from the layout seed instead of the shared random stream,
-// so asynchronous asset loads cannot change the outcome of a replay.
+
 function hashUnit(a, b) {
   let hash = 2166136261 ^ (Math.imul(a | 0, 374761393) ^ Math.imul(b | 0, 668265263));
   hash = Math.imul(hash ^ (hash >>> 13), 1274126177);
@@ -153,10 +152,8 @@ export function createScenery(scene, camera, { random = Math.random } = {}) {
     entry.island.add(rock);
   }
 
-  /**
-   * Rocky islands are a sand shelf with a cluster of the provided rock models
-   * on top, not a procedurally generated rock cone.
-   */
+
+
   function addRockyCluster(entry) {
     for (const child of [...entry.island.children]) {
       if (child.userData.shared) entry.island.remove(child);
@@ -189,7 +186,7 @@ export function createScenery(scene, camera, { random = Math.random } = {}) {
 
     let data;
     if (archetype === ROCKY_ISLAND) {
-      // A low sand shelf under the rocks; the rocks provide the silhouette.
+
       data = buildIslandSurfaceData('sandbar-shoal', seed);
       data = { ...data, palm: null, vegetation: 0 };
       surface.scale.setScalar(0.62);

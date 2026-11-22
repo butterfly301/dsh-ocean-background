@@ -171,9 +171,7 @@ async function serveLocale(req, res, pathname) {
 }
 
 function cachePolicyFor() {
-  // Revalidation is mandatory for every bundle file: the package keeps stable
-  // file names across releases, so an immutable max-age would pin stale shaders
-  // or models after an upgrade. The strong ETag makes the recheck a 304.
+
   return 'no-cache';
 }
 

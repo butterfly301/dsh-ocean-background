@@ -1,8 +1,7 @@
 
 const TAU = Math.PI * 2;
 
-// rocky-island has no profile here on purpose: scenery.js builds it from the
-// supplied GLB rock models, while the other three archetypes stay procedural.
+
 export const ISLAND_ARCHETYPES = [
   'sandbar-crescent',
   'sandbar-shoal',
@@ -176,9 +175,7 @@ function buildRingSurface(profile, seed) {
     capLift = 0.55,
   } = profile;
 
-  // A small extra ring under the summit rounds the top cap. Without it every
-  // island ends in a single fan of long triangles, which is what made the
-  // close-up rocks read as flat grey pyramids.
+
   const lastRing = rings[rings.length - 1];
   const capRing = {
     rx: lastRing.rx * capScale,
@@ -212,7 +209,7 @@ function buildRingSurface(profile, seed) {
       const baseX = Math.cos(angle) * ring.rx;
       const baseZ = Math.sin(angle) * ring.rz;
 
-      // Two noise octaves break the smooth ring into a ragged rock outline.
+
       const grain = (noise2(baseX * 0.18 + seed * 1.7, baseZ * 0.18 - seed) - 0.5) * roughness
         + (noise2(baseX * 0.55 + seed * 3.1, baseZ * 0.55 + seed) - 0.5) * roughness * 0.45;
       const radial = irregularity * (1 + grain * (0.45 + rise));
@@ -226,8 +223,7 @@ function buildRingSurface(profile, seed) {
         centerZ + baseZ * radial,
       );
 
-      // Blend neighbouring ring colours per vertex instead of painting whole
-      // horizontal bands, so the cliff face is mottled rather than one slab.
+
       const blend = 0.22 + 0.56 * noise2(baseX * 0.34 + seed, baseZ * 0.34 - seed * 0.7);
       const color = mixColor(colorA, colorB, blend);
       colors.push(color[0], color[1], color[2]);
@@ -243,8 +239,7 @@ function buildRingSurface(profile, seed) {
     }
   }
 
-  // Offset the summit slightly so the last triangle fan does not converge on
-  // the exact ring centre and create a visible pin point.
+
   const topOffsetX = (noise2(seed * 2.1, 0.5) - 0.5) * lastRing.rx * 0.35;
   const topOffsetZ = (noise2(0.5, seed * 2.7) - 0.5) * lastRing.rz * 0.35;
   const topCenter = ringCenters[ringCenters.length - 1];

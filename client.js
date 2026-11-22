@@ -17,8 +17,7 @@ window.__ModuleLoader__.load({
     const PERSIST_MS = 250;
     const METERS_PER_NM = 1852;
 
-    // English safety net only. Every other language lives in locale/*.json and
-    // is fetched from the plugin's own route.
+
     const FALLBACK_TEXT = {
       open: 'Ocean settings',
       show: 'Show ocean',
@@ -38,8 +37,7 @@ window.__ModuleLoader__.load({
       mileageUnit: 'nm',
     };
 
-    // Styles live in runtime/deck-ui.css and runtime/deck-shell.css, served by
-    // the plugin route, so the deck file stays behaviour only.
+
 
     const SKIN_VARS = [
       '--ob-light',

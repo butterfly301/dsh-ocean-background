@@ -1,6 +1,4 @@
-// Standalone debug feed. In the embedded product the host-page deck owns the
-// only poller and pushes snapshots into the frame. This module exists so the
-// renderer can still be opened directly at /ocean-background/?debug=1.
+
 
 export const DEFAULT_POLL_MS = 1000;
 

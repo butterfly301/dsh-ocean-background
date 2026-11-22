@@ -2,13 +2,9 @@ import * as THREE from 'three';
 import { SKY_GLSL, NOISE_GLSL } from './glsl.js';
 import { OCEAN_WAVE_GLSL } from './wave-glsl.js';
 
-// The water is a single plane whose height comes from the shared swell field.
-// Every other feature lives in the fragment shader: fine ripple normals,
-// fresnel sky reflection, sun glitter, whitecaps, hull shadow, wake and haze.
-// Keeping those in one place makes the whole surface respond to the same
-// wind, sun and throughput values.
 
-const vertexShader = /* glsl */ `
+
+const vertexShader =  `
 uniform float uWorldOffset;
 
 varying vec3 vWorld;
@@ -22,8 +18,8 @@ void main() {
   vec2 waveUv = pos.xz + vec2(uWorldOffset, 0.0);
   float h = waveHeight(waveUv);
 
-  // Finite-difference normal. The swell field is smooth, so a 0.55-unit
-  // step gives a stable normal without any extra texture fetches.
+
+
   float e = 0.55;
   float hx = waveHeight(waveUv + vec2(e, 0.0));
   float hz = waveHeight(waveUv + vec2(0.0, e));
@@ -40,7 +36,7 @@ void main() {
 }
 `;
 
-const fragmentShader = /* glsl */ `
+const fragmentShader =  `
 uniform float uTime;
 uniform float uFlow;
 uniform float uSea;
@@ -63,15 +59,15 @@ void main() {
   vec3 viewDir = normalize(cameraPosition - vWorld);
   float eyeDistance = length(cameraPosition - vWorld);
 
-  // Wind-aligned coordinates: detail stretches along the wind and packs
-  // tighter across it, which reads as chop instead of a square noise grid.
+
+
   vec2 windDir = normalize(vec2(0.86, 0.51));
   vec2 crossDir = vec2(-windDir.y, windDir.x);
   float alongWind = dot(vWorld.xz, windDir);
   float acrossWind = dot(vWorld.xz, crossDir);
 
-  // Three analytic noise gradients build the ripple normal. The finest layer
-  // fades out with distance so the horizon never shimmers with aliasing.
+
+
   float fineFade = 1.0 - smoothstep(120.0, 520.0, eyeDistance);
   vec2 g1 = valueNoiseGrad(vec2(alongWind * 0.060 + uTime * 0.040, acrossWind * 0.140 - uTime * 0.018));
   vec2 g2 = valueNoiseGrad(vec2(alongWind * 0.240 + uTime * 0.110, acrossWind * 0.550 - uTime * 0.060) + 13.7);
@@ -80,9 +76,9 @@ void main() {
   vec2 rippleWorld = windDir * rippleGrad.x + crossDir * rippleGrad.y;
   vec3 n = normalize(vNormalW + vec3(-rippleWorld.x, 0.0, -rippleWorld.y));
 
-  // Water body. Three layers break up what used to be one flat green surface:
-  // a height-driven deep-to-shallow ramp, very large depth patches, and broad
-  // swell shading. The fine wind streaks come after them.
+
+
+
   float relativeHeight = vHeight / max(uSea, 0.25);
   float crest = smoothstep(-0.9, 0.90, relativeHeight);
   vec3 body = mix(uDeep, uShallow, 0.24 + crest * 0.64);
@@ -93,7 +89,7 @@ void main() {
   float shoal = fbm2(vWorld.xz * 0.0120 + 31.7 + vec2(-uFlow * 0.0020, uTime * 0.0010));
   body = mix(body, uShallow * 1.05, smoothstep(0.55, 0.82, shoal) * 0.36);
 
-  // Wind streaks: long along the wind, tight across it.
+
   float streak = fbm2(vec2(alongWind * 0.035 + uFlow * 0.006, acrossWind * 0.220 - uTime * 0.012));
   body *= 0.86 + streak * 0.16;
   float streakFine = fbm2(vec2(alongWind * 0.120 + uFlow * 0.020, acrossWind * 0.750 - uTime * 0.040));
@@ -101,9 +97,9 @@ void main() {
   float micro = fbm2(vec2(alongWind * 0.520 + uFlow * 0.080, acrossWind * 2.600 - uTime * 0.160));
   body *= 0.97 + micro * 0.05 * fineFade;
 
-  // Broad swell shading comes from the low-frequency vertex normal, while the
-  // fragment normal adds the fine facets. Both use the same light direction so
-  // the large light bands and the small ripples agree.
+
+
+
   vec3 lightDir = normalize(vec3(-0.50, 0.55, 0.72));
   vec3 swellNormal = normalize(vNormalW);
   float swellLight = max(dot(swellNormal, lightDir), 0.0);
@@ -114,14 +110,14 @@ void main() {
   float depthAir = smoothstep(0.0, 560.0, eyeDistance);
   body = mix(body * 0.94, body * 1.06, depthAir);
 
-  // Light scattering through the thin part of a wave when the sun is behind
-  // the crest relative to the camera.
+
+
   float sunBehind = max(dot(-viewDir, uSunDir), 0.0);
   body += uShallow * uSunColor * pow(sunBehind, 3.0) * crest * 0.16;
 
-  // Fresnel reflection. Keep it subtle so the sea keeps its own colour; the
-  // reflection is also tinted toward the water body instead of being a clean
-  // mirror, which is what a stylised daytime ocean needs.
+
+
+
   vec3 refl = reflect(-viewDir, n);
   refl.y = abs(refl.y) + 0.015;
   float facing = clamp(dot(n, viewDir), 0.0, 1.0);
@@ -129,16 +125,16 @@ void main() {
   vec3 reflection = mix(skyBase(refl) * vec3(0.72, 0.88, 1.0), uShallow * 1.25 + uDeep * 0.20, 0.62);
   vec3 col = mix(body, reflection, fresnel);
 
-  // A broad, low-intensity sheen helps the surface read as water without
-  // turning into white sparkles.
+
+
   vec3 halfDir = normalize(uSunDir + viewDir);
   float broadSheen = pow(max(dot(n, halfDir), 0.0), 10.0) * 0.10;
   col += uShallow * broadSheen;
 
 
-  // Whitecaps: only high crests with a steep swell face produce them, and a
-  // second noise mask tears the patch into fragments. Throughput raises the
-  // amount and the sea state raises how often crests qualify.
+
+
+
   float swellSlope = length(swellNormal.xz);
   float crestMask = smoothstep(0.55, 1.10, relativeHeight);
   float breakMask = smoothstep(0.08, 0.22, swellSlope);
@@ -148,16 +144,16 @@ void main() {
   float foamAmount = clamp(foam * uFoam * 0.30, 0.0, 0.18);
   col = mix(col, mix(uShallow, uFoamColor, 0.65), foamAmount);
 
-  // Soft hull shadow, the cheapest cue that the ship sits in the water.
+
   if (uShadow > 0.001) {
     vec2 d = (vWorld.xz - uShipPos.xz) * vec2(1.0, 2.0);
     float hull = smoothstep(1.0, 0.12, length(d) / max(5.2, uSea * 2.6));
     col *= 1.0 - hull * 0.28 * uShadow;
   }
 
-  // Wake: a soft bow collar, two thin Kelvin arms and a churned trail behind
-  // the stern. The arms fade in aft of the stem so the wake never converges on
-  // a bright point at the bow, which is what a painted triangle looks like.
+
+
+
   if (uWake > 0.001) {
     vec2 rel = vWorld.xz - uShipPos.xz;
     float lateral = abs(rel.y);
@@ -190,9 +186,9 @@ void main() {
     col = mix(col, uFoamColor, clamp(trail * 0.55 * uWake, 0.0, 0.55));
   }
 
-  // Distance haze. Sampling the sky in the same horizontal direction as the
-  // water makes the far edge of the plane dissolve into the horizon instead
-  // of ending on a visible line.
+
+
+
   float hazeT = smoothstep(150.0, 620.0, eyeDistance);
   vec3 hazeDir = normalize(vec3(-viewDir.x, 0.012, -viewDir.z));
   vec3 hazeCol = skyBase(hazeDir);

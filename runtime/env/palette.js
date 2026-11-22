@@ -1,9 +1,5 @@
 import * as THREE from 'three';
 
-// Fixed daytime palette. Time-of-day and weather support will add presets next
-// to this one and swap the uniform values, so everything that reads colour goes
-// through createUniforms instead of holding its own hex constants.
-
 export const DAY_PALETTE = Object.freeze({
   skyZenith: '#3f87bd',
   skyHorizon: '#b6dbe8',

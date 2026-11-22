@@ -1,6 +1,5 @@
-// Pure berth layout for the fleet. No three.js, no DOM: given a viewport span
-// and a slot number it returns where a dinghy belongs. The runtime that owns
-// the meshes lives in world/fleet.js.
+
+
 
 const CHILD_STATUS = Object.freeze([
   'working',

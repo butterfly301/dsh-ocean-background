@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { SKY_GLSL, NOISE_GLSL } from './glsl.js';
 
-const vertexShader = /* glsl */ `
+const vertexShader =  `
 varying vec3 vDir;
 
 void main() {
@@ -11,7 +11,7 @@ void main() {
 }
 `;
 
-const fragmentShader = /* glsl */ `
+const fragmentShader =  `
 uniform float uTime;
 uniform float uCloud;
 
@@ -24,8 +24,6 @@ void main() {
   vec3 d = normalize(vDir);
   vec3 col = skyColor(d);
 
-  // Clouds only occupy the band above the horizon. Projecting the direction
-  // onto a plane gives them perspective: wide overhead, compressed at the rim.
   float band = smoothstep(0.015, 0.10, d.y) * smoothstep(0.82, 0.30, d.y);
   if (band > 0.001) {
     vec2 proj = d.xz / (d.y + 0.16);

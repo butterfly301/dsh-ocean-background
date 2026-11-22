@@ -1,9 +1,4 @@
-// The one contract between the host-page deck and the iframe renderer.
-//
-// The deck imports this module dynamically from /ocean-background/protocol.js
-// and the renderer imports it relatively, so the protocol version, the message
-// types and the settings schema have exactly one definition. Nothing in this
-// file may touch the DOM, Node APIs or three.js.
+
 
 export const PROTOCOL_VERSION = 2;
 

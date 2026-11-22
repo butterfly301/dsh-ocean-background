@@ -142,8 +142,7 @@ export function snapshotErrorPayload(error) {
   };
 }
 
-// Both the deck poll and the voyage report need the same session walk. A very
-// short promise cache keeps them from resolving ancestry twice in one second.
+
 export function createSnapshotReader({ ctx, ledger, ttlMs = 400, timeoutMs = 4000, limit = 32 }) {
   const cache = new Map();
 

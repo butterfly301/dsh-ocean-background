@@ -1,6 +1,4 @@
-// The swell field shared by the GPU water plane and the CPU bobbing of every
-// hull. This module owns the numbers; world/wave-glsl.js turns the same table
-// into shader source, so the two can never drift apart.
+
 
 const WAVES = [
   { dir: [0.86, 0.51], length: 196, steep: 0.050, envelopeFreq: 0.026 },

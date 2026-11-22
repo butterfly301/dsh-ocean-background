@@ -13,8 +13,7 @@ import { qualityProfile } from '../env/quality.js';
 
 const SHIP_X = 0;
 
-// Owns every object in the scene except the camera and the renderer. The app
-// drives it with one update call per frame and one settings call per change.
+
 export function createWorld({
   scene,
   camera,
