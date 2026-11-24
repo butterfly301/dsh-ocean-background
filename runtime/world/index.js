@@ -69,16 +69,24 @@ export function createWorld({
       return;
     }
     const loader = new THREE.TextureLoader();
-    loader.load(`./flag/image?v=${encodeURIComponent(String(spec.version ?? ''))}`, (texture) => {
-      if (disposed || seq !== flagSeq || !ship) {
-        texture.dispose();
-        return;
-      }
-      texture.colorSpace = THREE.SRGBColorSpace;
-      texture.flipY = false;
-      ship.setFlagTexture(texture);
-      onAssetReady();
-    });
+    loader.load(
+      `./flag/image?v=${encodeURIComponent(String(spec.version ?? ''))}`,
+      (texture) => {
+        if (disposed || seq !== flagSeq || !ship) {
+          texture.dispose();
+          return;
+        }
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.flipY = false;
+        texture.needsUpdate = true;
+        ship.setFlagTexture(texture);
+        onAssetReady();
+      },
+      undefined,
+      (error) => {
+        if (!disposed) console.warn('[ocean] custom flag texture failed to load', error);
+      },
+    );
   }
 
   function setFlagState(hasCustom, version = Date.now()) {
@@ -218,7 +226,7 @@ export function createWorld({
     const { time, flow, sea, motion = true, rollOffset = 0 } = frame;
     const cameraX = cameraXForShip(travelX, SHIP_X, settings?.cameraXOffset ?? 0);
     bobShip(time, flow, sea, rollOffset);
-    if (lanterns) lanterns.update(time, nightWeight, settings?.quality ?? 'balanced');
+    if (lanterns) lanterns.update(time, nightWeight);
     if (fleet) fleet.update(dt, { time, flow, sea, worldOffset: travelX, rollOffset });
     weatherEffects.update(dt, {
       weather: currentWeather,

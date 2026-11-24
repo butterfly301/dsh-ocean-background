@@ -72,3 +72,5 @@ body[data-ds-dark-theme] #ocean-background-panel .ob-btn {
   border-color: rgba(160, 200, 215, .28); background: rgba(160, 200, 215, .1);
 }
 #ocean-background-panel .ob-btn:disabled { opacity: .6; cursor: not-allowed; }
+#ocean-background-panel .ob-btn-row { display: flex; gap: 6px; margin-top: 6px; }
+#ocean-background-panel .ob-btn-row .ob-btn { margin-top: 0; flex: 1 1 0; }

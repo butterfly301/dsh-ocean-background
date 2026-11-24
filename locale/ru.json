@@ -35,6 +35,12 @@
     "weatherLat": "Широта",
     "weatherLon": "Долгота",
     "locating": "Определение…",
-    "locationFailed": "Не удалось определить; введите координаты"
+    "locationFailed": "Не удалось определить; введите координаты",
+    "shipFlag": "Главный флаг",
+    "uploadFlag": "Загрузить флаг",
+    "resetFlag": "Сбросить",
+    "flagCustom": "Свой флаг",
+    "flagDefault": "Стандартный флаг",
+    "flagInvalid": "Только PNG, JPEG или WebP до 2 МБ"
   }
 }

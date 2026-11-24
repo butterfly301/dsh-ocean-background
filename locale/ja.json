@@ -35,6 +35,12 @@
     "weatherLat": "緯度",
     "weatherLon": "経度",
     "locating": "取得中…",
-    "locationFailed": "位置情報の取得に失敗しました。座標を手入力してください"
+    "locationFailed": "位置情報の取得に失敗しました。座標を手入力してください",
+    "shipFlag": "メインフラッグ",
+    "uploadFlag": "旗をアップロード",
+    "resetFlag": "既定に戻す",
+    "flagCustom": "カスタム旗",
+    "flagDefault": "既定の旗",
+    "flagInvalid": "2 MB 以内の PNG / JPEG / WebP のみ対応"
   }
 }

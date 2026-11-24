@@ -18,6 +18,9 @@ window.__ModuleLoader__.load({
     const WEATHER_STALE_MS = 60 * 60 * 1000;
     const PERSIST_MS = 250;
     const METERS_PER_NM = 1852;
+    const MAX_FLAG_BYTES = 2 * 1024 * 1024;
+    const ALLOWED_FLAG_MIME = new Set(['image/png', 'image/jpeg', 'image/webp']);
+    const FLAG_CHANGED_EVENT = 'dsh:ocean-flag-changed';
 
     const FALLBACK_TEXT = {
       open: 'Ocean settings',
@@ -52,6 +55,12 @@ window.__ModuleLoader__.load({
       weatherLon: 'Longitude',
       locating: 'Locating…',
       locationFailed: 'Location failed; enter coordinates manually',
+      shipFlag: 'Main flag',
+      uploadFlag: 'Upload flag',
+      resetFlag: 'Reset flag',
+      flagCustom: 'Custom flag',
+      flagDefault: 'Default flag',
+      flagInvalid: 'Only PNG, JPEG, or WebP up to 2 MB are supported',
     };
 
     const SKIN_VARS = [
@@ -214,7 +223,7 @@ window.__ModuleLoader__.load({
       };
     }
 
-    function createPanel({ contract, settings, getText, onLocate = () => {} }) {
+    function createPanel({ contract, settings, getText, onLocate = () => {}, onUploadFlag = () => {}, onResetFlag = () => {} }) {
       const { SETTINGS_SCHEMA } = contract;
       const { order, fields } = SETTINGS_SCHEMA;
       const panel = document.createElement('div');
@@ -230,6 +239,10 @@ window.__ModuleLoader__.load({
 
       let geoNote = null;
       let locateBtn = null;
+      let flagState = { hasCustom: false, busy: false, errorKey: '' };
+      let flagStatus = null;
+      let flagUploadBtn = null;
+      let flagResetBtn = null;
 
       for (const key of order) {
         if (key === 'weatherLat') {
@@ -331,6 +344,45 @@ window.__ModuleLoader__.load({
         controls.set(key, { spec, row, input, output });
       }
 
+      const flagRow = document.createElement('div');
+      flagRow.className = 'ob-row';
+      const flagLabel = document.createElement('span');
+      flagLabel.dataset.obText = 'shipFlag';
+      flagStatus = document.createElement('span');
+      flagStatus.className = 'ob-note';
+      flagStatus.style.marginTop = '0';
+      flagRow.appendChild(flagLabel);
+      flagRow.appendChild(flagStatus);
+      panel.appendChild(flagRow);
+
+      const flagInput = document.createElement('input');
+      flagInput.type = 'file';
+      flagInput.accept = 'image/png,image/jpeg,image/webp';
+      flagInput.hidden = true;
+      flagInput.addEventListener('change', () => {
+        const file = flagInput.files?.[0];
+        flagInput.value = '';
+        if (file) onUploadFlag(file);
+      });
+      panel.appendChild(flagInput);
+
+      const flagBtns = document.createElement('div');
+      flagBtns.className = 'ob-btn-row';
+      flagUploadBtn = document.createElement('button');
+      flagUploadBtn.type = 'button';
+      flagUploadBtn.className = 'ob-btn';
+      flagUploadBtn.dataset.obText = 'uploadFlag';
+      flagUploadBtn.addEventListener('click', () => flagInput.click());
+      flagResetBtn = document.createElement('button');
+      flagResetBtn.type = 'button';
+      flagResetBtn.className = 'ob-btn';
+      flagResetBtn.dataset.obText = 'resetFlag';
+      flagResetBtn.disabled = true;
+      flagResetBtn.addEventListener('click', () => onResetFlag());
+      flagBtns.appendChild(flagUploadBtn);
+      flagBtns.appendChild(flagResetBtn);
+      panel.appendChild(flagBtns);
+
       const hint = document.createElement('p');
       hint.className = 'ob-note';
       hint.dataset.obText = 'cameraHint';
@@ -341,6 +393,14 @@ window.__ModuleLoader__.load({
       note.dataset.obText = 'recovering';
       note.hidden = true;
       panel.appendChild(note);
+
+      function refreshFlagUi() {
+        const text = getText();
+        const key = flagState.errorKey || (flagState.hasCustom ? 'flagCustom' : 'flagDefault');
+        if (flagStatus && typeof text[key] === 'string') flagStatus.textContent = text[key];
+        if (flagUploadBtn) flagUploadBtn.disabled = flagState.busy;
+        if (flagResetBtn) flagResetBtn.disabled = flagState.busy || !flagState.hasCustom;
+      }
 
       function sync() {
         const current = settings.current;
@@ -374,6 +434,7 @@ window.__ModuleLoader__.load({
           const key = option.dataset.obOption;
           if (key && typeof text[key] === 'string') option.textContent = text[key];
         }
+        refreshFlagUi();
       }
 
       return {
@@ -381,6 +442,10 @@ window.__ModuleLoader__.load({
         sync,
         refreshText,
         setNoteVisible(visible) { note.hidden = !visible; },
+        setFlagState(next) {
+          flagState = { ...flagState, ...next };
+          refreshFlagUi();
+        },
         setLocating(busy, message = '') {
           if (locateBtn) locateBtn.disabled = Boolean(busy);
           if (geoNote) {
@@ -556,6 +621,12 @@ window.__ModuleLoader__.load({
       const dock = document.createElement('div');
       dock.id = DOCK_ID;
 
+      const emitFlagChanged = (hasCustom, version = Date.now()) => {
+        try {
+          window.dispatchEvent(new CustomEvent(FLAG_CHANGED_EVENT, { detail: { hasCustom, version } }));
+        } catch {}
+      };
+
       panel = createPanel({
         contract,
         settings,
@@ -580,6 +651,52 @@ window.__ModuleLoader__.load({
             .catch(() => {
               if (!state.disposed) panel.setLocating(false, text().locationFailed);
             });
+        },
+        onUploadFlag: async (file) => {
+          if (!file || typeof fetch !== 'function') return;
+          if (file.size <= 0 || file.size > MAX_FLAG_BYTES || (file.type && !ALLOWED_FLAG_MIME.has(file.type))) {
+            panel.setFlagState({ errorKey: 'flagInvalid' });
+            return;
+          }
+          panel.setFlagState({ busy: true, errorKey: '' });
+          try {
+            const buf = await file.arrayBuffer();
+            const res = await fetch(`${BASE}/flag`, {
+              method: 'POST',
+              headers: { 'content-type': file.type || 'application/octet-stream' },
+              body: buf,
+            });
+            const payload = await res.json().catch(() => null);
+            if (state.disposed) return;
+            if (!res.ok || !payload?.ok) {
+              panel.setFlagState({ busy: false, errorKey: 'flagInvalid' });
+              return;
+            }
+            const version = payload.updatedAt || Date.now();
+            panel.setFlagState({ hasCustom: true, busy: false, errorKey: '' });
+            postFlag(true, version);
+            emitFlagChanged(true, version);
+          } catch {
+            if (!state.disposed) panel.setFlagState({ busy: false, errorKey: 'flagInvalid' });
+          }
+        },
+        onResetFlag: async () => {
+          if (typeof fetch !== 'function') return;
+          panel.setFlagState({ busy: true, errorKey: '' });
+          try {
+            const res = await fetch(`${BASE}/flag`, { method: 'DELETE' });
+            if (state.disposed) return;
+            if (!res.ok) {
+              panel.setFlagState({ busy: false });
+              return;
+            }
+            const version = Date.now();
+            panel.setFlagState({ hasCustom: false, busy: false, errorKey: '' });
+            postFlag(false, version);
+            emitFlagChanged(false, version);
+          } catch {
+            if (!state.disposed) panel.setFlagState({ busy: false });
+          }
         },
       });
       frame = createFrameHost({
@@ -624,6 +741,7 @@ window.__ModuleLoader__.load({
 
       function postFlag(hasCustom, version = Date.now()) {
         state.lastFlag = { hasCustom: Boolean(hasCustom), version };
+        panel?.setFlagState({ hasCustom: state.lastFlag.hasCustom, errorKey: '' });
         if (frame.mounted) {
           frame.post(flagMessage(state.lastFlag.hasCustom, state.lastFlag.version));
         }
@@ -873,7 +991,12 @@ window.__ModuleLoader__.load({
           fetchFlagState();
           return;
         }
-        postFlag(Boolean(detail.hasCustom), detail.version || Date.now());
+        const nextCustom = Boolean(detail.hasCustom);
+        const nextVersion = detail.version || Date.now();
+        if (state.lastFlag && state.lastFlag.hasCustom === nextCustom && detail.version && state.lastFlag.version === detail.version) {
+          return;
+        }
+        postFlag(nextCustom, nextVersion);
       };
 
       button.addEventListener('click', onButtonClick);

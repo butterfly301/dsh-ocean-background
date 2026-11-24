@@ -35,6 +35,12 @@
     "weatherLat": "Latitude",
     "weatherLon": "Longitude",
     "locating": "Localizando…",
-    "locationFailed": "Falha ao localizar; informe as coordenadas"
+    "locationFailed": "Falha ao localizar; informe as coordenadas",
+    "shipFlag": "Bandeira principal",
+    "uploadFlag": "Enviar bandeira",
+    "resetFlag": "Restaurar",
+    "flagCustom": "Bandeira própria",
+    "flagDefault": "Bandeira padrão",
+    "flagInvalid": "Apenas PNG, JPEG ou WebP de até 2 MB"
   }
 }

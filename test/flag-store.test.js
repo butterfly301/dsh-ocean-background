@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, rm } from 'node:fs/promises';
+import { mkdtemp, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { Readable } from 'node:stream';
@@ -90,6 +90,8 @@ test('flag routes store, serve, reject invalid/oversized, and reset custom flag'
   });
   assert.equal(okRes.status, 200);
   assert.equal(JSON.parse(okRes.body.toString()).hasCustom, true);
+  const storedFiles = await readdir(dir);
+  assert.equal(storedFiles.some((f) => f.endsWith('.tmp')), false);
 
   const imgRes = await requestBinary(options.handler, { url: '/ocean-background/flag/image' });
   assert.equal(imgRes.status, 200);

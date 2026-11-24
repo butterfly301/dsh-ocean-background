@@ -35,6 +35,12 @@
     "weatherLat": "Breitengrad",
     "weatherLon": "Längengrad",
     "locating": "Ortung…",
-    "locationFailed": "Ortung fehlgeschlagen; Koordinaten manuell eingeben"
+    "locationFailed": "Ortung fehlgeschlagen; Koordinaten manuell eingeben",
+    "shipFlag": "Hauptflagge",
+    "uploadFlag": "Flagge hochladen",
+    "resetFlag": "Standardflagge",
+    "flagCustom": "Eigene Flagge",
+    "flagDefault": "Standardflagge",
+    "flagInvalid": "Nur PNG, JPEG oder WebP bis 2 MB unterstützt"
   }
 }

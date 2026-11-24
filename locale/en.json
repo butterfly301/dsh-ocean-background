@@ -35,6 +35,12 @@
     "weatherLat": "Latitude",
     "weatherLon": "Longitude",
     "locating": "Locating…",
-    "locationFailed": "Location failed; enter coordinates manually"
+    "locationFailed": "Location failed; enter coordinates manually",
+    "shipFlag": "Main flag",
+    "uploadFlag": "Upload flag",
+    "resetFlag": "Reset flag",
+    "flagCustom": "Custom flag",
+    "flagDefault": "Default flag",
+    "flagInvalid": "Only PNG, JPEG, or WebP up to 2 MB are supported"
   }
 }

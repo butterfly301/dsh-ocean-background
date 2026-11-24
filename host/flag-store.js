@@ -1,4 +1,4 @@
-import { mkdir, readFile, stat, unlink, writeFile } from 'node:fs/promises';
+import { mkdir, readFile, rename, stat, unlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 export const MAX_FLAG_BYTES = 2 * 1024 * 1024;
@@ -55,9 +55,10 @@ export function createFlagStore({ dir }) {
     return null;
   }
 
-  async function removeAll() {
+  async function removeAll(keepExt = null) {
     if (!dir) return;
     for (const fmt of FORMATS) {
+      if (keepExt && fmt.ext === keepExt) continue;
       try {
         await unlink(join(dir, `main-flag.${fmt.ext}`));
       } catch (error) {
@@ -97,9 +98,11 @@ export function createFlagStore({ dir }) {
         throw err;
       }
       await mkdir(dir, { recursive: true });
-      await removeAll();
       const target = join(dir, `main-flag.${fmt.ext}`);
-      await writeFile(target, buffer);
+      const tmp = `${target}.${process.pid}.${Date.now()}.tmp`;
+      await writeFile(tmp, buffer);
+      await rename(tmp, target);
+      await removeAll(fmt.ext);
       const info = await stat(target);
       return { hasCustom: true, mime: fmt.mime, updatedAt: Math.trunc(info.mtimeMs) };
     },

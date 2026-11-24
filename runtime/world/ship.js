@@ -8,7 +8,7 @@ const TARGET_LENGTH = 10;
 const DRAFT_RATIO = 0.091;
 
 const isSail = (name) => /^StylShip_Sail/i.test(name);
-const isMainFlag = (name) => /^StylShip_MainFlag$/i.test(name);
+export const isMainFlag = (name) => /^StylShip_MainFlag(?:$|_)/i.test(name);
 
 function stripEmissive(material) {
   if (!material) return material;
@@ -16,6 +16,37 @@ function stripEmissive(material) {
   if (material.emissive) material.emissive.setRGB(0, 0, 0);
   material.needsUpdate = true;
   return material;
+}
+
+function buildFlagPlanarUv(node) {
+  const pos = node.geometry?.getAttribute?.('position');
+  if (!pos || pos.count === 0) return null;
+  node.updateWorldMatrix(true, false);
+  const v = new THREE.Vector3();
+  const xs = new Float32Array(pos.count);
+  const ys = new Float32Array(pos.count);
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minY = Infinity;
+  let maxY = -Infinity;
+  for (let i = 0; i < pos.count; i += 1) {
+    v.fromBufferAttribute(pos, i).applyMatrix4(node.matrixWorld);
+    xs[i] = v.x;
+    ys[i] = v.y;
+    if (v.x < minX) minX = v.x;
+    if (v.x > maxX) maxX = v.x;
+    if (v.y < minY) minY = v.y;
+    if (v.y > maxY) maxY = v.y;
+  }
+  const spanX = Math.max(1e-5, maxX - minX);
+  const spanY = Math.max(1e-5, maxY - minY);
+  const uv = new Float32Array(pos.count * 2);
+  for (let i = 0; i < pos.count; i += 1) {
+    uv[i * 2] = (xs[i] - minX) / spanX;
+    // Flag textures use flipY = false (v = 0 at top edge, v = 1 at bottom edge).
+    uv[i * 2 + 1] = (maxY - ys[i]) / spanY;
+  }
+  return new THREE.BufferAttribute(uv, 2);
 }
 
 function bakeFurl(mesh, cx) {
@@ -159,6 +190,7 @@ export function prepareShip(gltf) {
     : new THREE.Vector3(0.6, 4.2, -0.28);
 
   pivot.add(root);
+  pivot.updateMatrixWorld(true);
 
   const sails = [];
   const mainFlags = [];
@@ -183,14 +215,26 @@ export function prepareShip(gltf) {
       node.castShadow = false;
       sails.push(node);
     } else if (isMainFlag(name)) {
-      // Clone material so replacing StylShip_MainFlag never mutates Flag1 or Flag2.
-      const flagMaterial = material && typeof material.clone === 'function'
+      // Clone geometry & material and keep detached from SailsRope atlas merging so StylShip_MainFlag swaps cleanly without affecting Flag1 or Flag2.
+      if (node.geometry && typeof node.geometry.clone === 'function') {
+        node.geometry = node.geometry.clone();
+      }
+      const defaultMaterial = material && typeof material.clone === 'function'
         ? material.clone()
         : new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
-      stripEmissive(flagMaterial);
-      flagMaterial.side = THREE.DoubleSide;
-      node.material = flagMaterial;
-      mainFlags.push({ mesh: node, material: flagMaterial, defaultMap: flagMaterial.map || null });
+      stripEmissive(defaultMaterial);
+      defaultMaterial.side = THREE.DoubleSide;
+      const customMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.88,
+        metalness: 0,
+        alphaTest: 0.1,
+        side: THREE.DoubleSide,
+      });
+      const defaultUv = node.geometry.getAttribute('uv') || null;
+      const customUv = buildFlagPlanarUv(node);
+      node.material = defaultMaterial;
+      mainFlags.push({ mesh: node, defaultMaterial, customMaterial, defaultUv, customUv });
     } else {
       stripEmissive(node.material);
     }
@@ -223,8 +267,22 @@ export function prepareShip(gltf) {
       }
       customFlagTexture = texture || null;
       for (const entry of mainFlags) {
-        entry.material.map = customFlagTexture || entry.defaultMap;
-        entry.material.needsUpdate = true;
+        if (customFlagTexture) {
+          entry.customMaterial.map = customFlagTexture;
+          entry.customMaterial.needsUpdate = true;
+          entry.mesh.material = entry.customMaterial;
+          if (entry.customUv) {
+            entry.customUv.needsUpdate = true;
+            entry.mesh.geometry.setAttribute('uv', entry.customUv);
+          }
+        } else {
+          entry.customMaterial.map = null;
+          entry.mesh.material = entry.defaultMaterial;
+          if (entry.defaultUv) {
+            entry.defaultUv.needsUpdate = true;
+            entry.mesh.geometry.setAttribute('uv', entry.defaultUv);
+          }
+        }
       }
     },
   };

@@ -98,7 +98,7 @@ export function createShipLanterns(shipPivot, anchors) {
   const mast = createLanternAssembly(anchors.mast, 1.7, 'mast');
   shipPivot.add(stern.group, mast.group);
 
-  function update(time, nightWeight, quality = 'balanced') {
+  function update(time, nightWeight) {
     const active = typeof nightWeight === 'number' && nightWeight > 0.02;
     stern.group.visible = active;
     mast.group.visible = active;
@@ -127,7 +127,7 @@ export function createShipLanterns(shipPivot, anchors) {
       mast.halo.scale.setScalar((1.0 + w * 0.5) * breathMast);
     }
     stern.light.intensity = w * 5.8 * breathStern;
-    mast.light.intensity = quality === 'high' ? w * 4.2 * breathMast : w * 2.4 * breathMast;
+    mast.light.intensity = w * 4.2 * breathMast;
   }
 
   return { update };

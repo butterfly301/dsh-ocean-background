@@ -353,9 +353,11 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
     if (!payload) return;
     if (payload.type === MESSAGE.settings) {
       settingsReceived = true;
+      const prevLiveWeather = liveWeather;
       liveWeather = payload.liveWeather === 'clear' || payload.liveWeather === 'rain' || payload.liveWeather === 'snow'
         ? payload.liveWeather
         : null;
+      if (liveWeather !== prevLiveWeather) stillFrameNeeded = true;
       applySettings({
         ...(payload.settings && typeof payload.settings === 'object' ? payload.settings : {}),
         sessionId: payload.sessionId ?? null,

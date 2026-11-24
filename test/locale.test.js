@@ -38,6 +38,12 @@ const REQUIRED = [
   'weatherLon',
   'locating',
   'locationFailed',
+  'shipFlag',
+  'uploadFlag',
+  'resetFlag',
+  'flagCustom',
+  'flagDefault',
+  'flagInvalid',
 ];
 
 test('every locale ships the complete UI dictionary', async () => {

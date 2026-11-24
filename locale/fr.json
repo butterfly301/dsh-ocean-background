@@ -35,6 +35,12 @@
     "weatherLat": "Latitude",
     "weatherLon": "Longitude",
     "locating": "Localisation…",
-    "locationFailed": "Échec de localisation ; saisissez les coordonnées"
+    "locationFailed": "Échec de localisation ; saisissez les coordonnées",
+    "shipFlag": "Pavillon principal",
+    "uploadFlag": "Changer de pavillon",
+    "resetFlag": "Réinitialiser",
+    "flagCustom": "Pavillon personnalisé",
+    "flagDefault": "Pavillon par défaut",
+    "flagInvalid": "PNG, JPEG ou WebP jusqu’à 2 Mo uniquement"
   }
 }

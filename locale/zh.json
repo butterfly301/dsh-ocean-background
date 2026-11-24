@@ -35,6 +35,12 @@
     "weatherLat": "纬度",
     "weatherLon": "经度",
     "locating": "定位中…",
-    "locationFailed": "定位失败，请手动输入经纬度"
+    "locationFailed": "定位失败，请手动输入经纬度",
+    "shipFlag": "主旗贴图",
+    "uploadFlag": "更换旗帜",
+    "resetFlag": "恢复默认",
+    "flagCustom": "自定义旗帜",
+    "flagDefault": "默认旗帜",
+    "flagInvalid": "仅支持 2 MB 以内的 PNG / JPEG / WebP 图片"
   }
 }

@@ -39,9 +39,9 @@ function finish(res, status, headers) {
   res.end();
 }
 
-function sendJson(req, res, payload, cacheControl = 'no-store') {
+function sendJson(req, res, payload, status = 200, cacheControl = 'no-store') {
   const body = Buffer.from(JSON.stringify(payload));
-  res.writeHead(200, baseHeaders({
+  res.writeHead(status, baseHeaders({
     'cache-control': cacheControl,
     'content-length': String(body.byteLength),
     'content-type': 'application/json; charset=utf-8',
@@ -156,15 +156,9 @@ async function serveLocale(req, res, pathname) {
   const candidates = [lang.toLowerCase(), primary, 'en'].filter((id, index, all) => all.indexOf(id) === index);
   for (const id of candidates) {
     try {
-      const raw = await readFile(resolve(LOCALE_ROOT, `${id}.json`), 'utf8');
-      const data = JSON.parse(raw);
-      const body = Buffer.from(JSON.stringify({ lang: id, ...data }));
-      res.writeHead(200, baseHeaders({
-        'cache-control': 'public, max-age=60',
-        'content-length': String(body.byteLength),
-        'content-type': 'application/json; charset=utf-8',
-      }));
-      res.end(req.method === 'HEAD' ? undefined : body);
+      const content = await readFile(resolve(LOCALE_ROOT, `${id}.json`), 'utf8');
+      const data = JSON.parse(content);
+      sendJson(req, res, { lang: id, ...data }, 200, 'public, max-age=60');
       return;
     } catch (error) {
       if (error?.code !== 'ENOENT') {
@@ -177,7 +171,6 @@ async function serveLocale(req, res, pathname) {
 }
 
 function cachePolicyFor() {
-
   return 'no-cache';
 }
 
@@ -242,16 +235,6 @@ async function serveStatic(req, res, pathname) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-function sendJsonStatus(req, res, status, payload, cacheControl = 'no-store') {
-  const body = Buffer.from(JSON.stringify(payload));
-  res.writeHead(status, baseHeaders({
-    'cache-control': cacheControl,
-    'content-length': String(body.byteLength),
-    'content-type': 'application/json; charset=utf-8',
-  }));
-  res.end(req.method === 'HEAD' ? undefined : body);
-}
-
 function readBinaryBody(req, limitBytes) {
   return new Promise((resolvePromise, rejectPromise) => {
     const chunks = [];
@@ -284,11 +267,11 @@ function readBinaryBody(req, limitBytes) {
 
 async function serveFlagMeta(flagStore, req, res) {
   if (!flagStore) {
-    sendJsonStatus(req, res, 200, { ok: true, hasCustom: false, mime: null, updatedAt: null });
+    sendJson(req, res, { ok: true, hasCustom: false, mime: null, updatedAt: null });
     return;
   }
   const info = await flagStore.inspect();
-  sendJsonStatus(req, res, 200, { ok: true, ...info });
+  sendJson(req, res, { ok: true, ...info });
 }
 
 async function serveFlagImage(flagStore, req, res) {
@@ -311,7 +294,7 @@ async function serveFlagImage(flagStore, req, res) {
 
 async function serveFlagUpload(flagStore, req, res) {
   if (!flagStore) {
-    sendJsonStatus(req, res, 503, { ok: false, error: 'flag storage unavailable' });
+    sendJson(req, res, { ok: false, error: 'flag storage unavailable' }, 503);
     return;
   }
   let body;
@@ -319,25 +302,25 @@ async function serveFlagUpload(flagStore, req, res) {
     body = await readBinaryBody(req, MAX_FLAG_BYTES);
   } catch (error) {
     const status = error?.status === 413 ? 413 : 400;
-    sendJsonStatus(req, res, status, { ok: false, error: error?.message || 'invalid body' });
+    sendJson(req, res, { ok: false, error: error?.message || 'invalid body' }, status);
     return;
   }
   try {
     const saved = await flagStore.saveImage(body);
-    sendJsonStatus(req, res, 200, { ok: true, ...saved });
+    sendJson(req, res, { ok: true, ...saved });
   } catch (error) {
     const status = typeof error?.status === 'number' ? error.status : 400;
-    sendJsonStatus(req, res, status, { ok: false, error: error?.message || 'invalid image' });
+    sendJson(req, res, { ok: false, error: error?.message || 'invalid image' }, status);
   }
 }
 
 async function serveFlagDelete(flagStore, req, res) {
   if (!flagStore) {
-    sendJsonStatus(req, res, 503, { ok: false, error: 'flag storage unavailable' });
+    sendJson(req, res, { ok: false, error: 'flag storage unavailable' }, 503);
     return;
   }
   const cleared = await flagStore.clearImage();
-  sendJsonStatus(req, res, 200, { ok: true, ...cleared });
+  sendJson(req, res, { ok: true, ...cleared });
 }
 
 export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, weatherService = createWeatherService() }) {
@@ -423,10 +406,10 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
           return;
         }
         void weatherService.locateByIp()
-          .then((payload) => sendJsonStatus(req, res, 200, payload))
+          .then((payload) => sendJson(req, res, payload))
           .catch((error) => {
             logOnce(ctx, 'warn', 'geo-route', `ocean-background: geo route failed: ${describeError(error)}`);
-            sendJsonStatus(req, res, 502, { ok: false, error: describeError(error) });
+            sendJson(req, res, { ok: false, error: describeError(error) }, 502);
           });
         return;
       }
@@ -439,13 +422,13 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
         const lat = url.searchParams.get('lat');
         const lon = url.searchParams.get('lon');
         void weatherService.fetchWeather(lat, lon)
-          .then((payload) => sendJsonStatus(req, res, 200, payload))
+          .then((payload) => sendJson(req, res, payload))
           .catch((error) => {
             const status = error?.status === 400 ? 400 : 502;
             if (status !== 400) {
               logOnce(ctx, 'warn', 'weather-route', `ocean-background: weather route failed: ${describeError(error)}`);
             }
-            sendJsonStatus(req, res, status, { ok: false, error: describeError(error) });
+            sendJson(req, res, { ok: false, error: describeError(error) }, status);
           });
         return;
       }
