@@ -19,6 +19,22 @@
     "recovering": "海面の準備ができていません",
     "mileageToday": "本日の航行",
     "mileageFleet": "累計航行",
-    "mileageUnit": "海里"
+    "mileageUnit": "海里",
+    "followTime": "現実の時刻に連動",
+    "timePreset": "時間帯プリセット",
+    "presetDawn": "夜明け",
+    "presetDay": "正午",
+    "presetDusk": "夕暮れ",
+    "presetNight": "深夜",
+    "followWeather": "現実の天気に連動",
+    "weatherPreset": "天気",
+    "weatherClear": "晴れ",
+    "weatherRain": "雨",
+    "weatherSnow": "雪",
+    "useLocation": "現在地を使用",
+    "weatherLat": "緯度",
+    "weatherLon": "経度",
+    "locating": "取得中…",
+    "locationFailed": "位置情報の取得に失敗しました。座標を手入力してください"
   }
 }

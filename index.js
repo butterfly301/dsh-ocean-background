@@ -1,5 +1,6 @@
 import { homedir } from 'node:os';
 import { join } from 'node:path';
+import { createFlagStore } from './host/flag-store.js';
 import { createMileageLedger } from './host/mileage/ledger.js';
 import { installForkSnapshots } from './host/mileage/fork-hook.js';
 import { installRoutes } from './host/routes.js';
@@ -23,10 +24,11 @@ function dataDirOf(ctx) {
 
 export function apply(ctx, config = {}) {
   return ctx.effect(() => {
+    const resolvedDir = config.mileageDir === null
+      ? null
+      : (typeof config.mileageDir === 'string' && config.mileageDir !== '' ? config.mileageDir : dataDirOf(ctx));
     const ledger = createMileageLedger({
-      dir: config.mileageDir === null
-        ? null
-        : (typeof config.mileageDir === 'string' && config.mileageDir !== '' ? config.mileageDir : dataDirOf(ctx)),
+      dir: resolvedDir,
       onWarn: (error) => logOnce(
         ctx,
         'warn',
@@ -34,6 +36,7 @@ export function apply(ctx, config = {}) {
         `ocean-background: mileage storage failed: ${describeError(error)}`,
       ),
     });
+    const flagStore = createFlagStore({ dir: resolvedDir });
     const readSnapshot = createSnapshotReader({ ctx, ledger });
     let restoreFork = () => {};
     let registration;
@@ -57,7 +60,7 @@ export function apply(ctx, config = {}) {
     }
 
     try {
-      registration = installRoutes(ctx, { ledger, readSnapshot });
+      registration = installRoutes(ctx, { ledger, readSnapshot, flagStore });
     } catch (error) {
       release();
       throw error;

@@ -19,6 +19,22 @@
     "recovering": "Sea not ready, interface untouched",
     "mileageToday": "Sailed today",
     "mileageFleet": "Sailed",
-    "mileageUnit": "nm"
+    "mileageUnit": "nm",
+    "followTime": "Follow real time",
+    "timePreset": "Time preset",
+    "presetDawn": "Dawn",
+    "presetDay": "Noon",
+    "presetDusk": "Dusk",
+    "presetNight": "Midnight",
+    "followWeather": "Follow real weather",
+    "weatherPreset": "Weather",
+    "weatherClear": "Clear",
+    "weatherRain": "Rain",
+    "weatherSnow": "Snow",
+    "useLocation": "Use current location",
+    "weatherLat": "Latitude",
+    "weatherLon": "Longitude",
+    "locating": "Locating…",
+    "locationFailed": "Location failed; enter coordinates manually"
   }
 }

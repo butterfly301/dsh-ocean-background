@@ -19,6 +19,22 @@
     "recovering": "海面未就绪，界面保持原样",
     "mileageToday": "今日已航行",
     "mileageFleet": "目前已航行",
-    "mileageUnit": "海里"
+    "mileageUnit": "海里",
+    "followTime": "时间跟随现实",
+    "timePreset": "时段预设",
+    "presetDawn": "清晨",
+    "presetDay": "正午",
+    "presetDusk": "黄昏",
+    "presetNight": "深夜",
+    "followWeather": "天气跟随现实",
+    "weatherPreset": "天气",
+    "weatherClear": "晴天",
+    "weatherRain": "雨天",
+    "weatherSnow": "雪天",
+    "useLocation": "使用当前位置",
+    "weatherLat": "纬度",
+    "weatherLon": "经度",
+    "locating": "定位中…",
+    "locationFailed": "定位失败，请手动输入经纬度"
   }
 }

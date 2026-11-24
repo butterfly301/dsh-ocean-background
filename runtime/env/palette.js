@@ -1,14 +1,13 @@
 import * as THREE from 'three';
+import { DAY_PALETTE } from './time-weather.js';
 
-export const DAY_PALETTE = Object.freeze({
-  skyZenith: '#3f87bd',
-  skyHorizon: '#b6dbe8',
-  sunDir: Object.freeze({ x: -0.48, y: 0.20, z: -0.85 }),
-  sunColor: '#fff0d2',
-  deep: '#1f5d78',
-  shallow: '#4e9fba',
-  foam: '#bfe0dc',
-});
+export {
+  DAY_PALETTE,
+  computeAtmosphere,
+  blendAtmosphere,
+  paletteForHour,
+  applyWeatherToAtmosphere,
+} from './time-weather.js';
 
 export function createUniforms(palette = DAY_PALETTE) {
   const sunDir = new THREE.Vector3(palette.sunDir.x, palette.sunDir.y, palette.sunDir.z).normalize();

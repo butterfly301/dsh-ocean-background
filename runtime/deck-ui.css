@@ -49,9 +49,26 @@ body[data-ds-dark-theme] #ocean-background-panel {
 }
 #ocean-background-panel[hidden] { display: none; }
 #ocean-background-panel .ob-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 9px 0 0; }
+#ocean-background-panel .ob-row[hidden] { display: none; }
 #ocean-background-panel .ob-row:first-child { margin-top: 0; }
 #ocean-background-panel .ob-title { font-weight: 600; margin: 0 0 6px; }
 #ocean-background-panel .ob-note { margin: 8px 0 0; opacity: .7; font-size: 11px; }
 #ocean-background-panel input[type="range"] { width: 100%; margin: 6px 0 0; }
 #ocean-background-panel select { font: inherit; padding: 2px 6px; border-radius: 6px; }
 #ocean-background-panel label { display: block; }
+#ocean-background-panel input[type="text"] {
+  width: 96px; font: inherit; padding: 2px 6px; border-radius: 6px;
+  border: 1px solid rgba(20, 60, 75, .25); background: transparent; color: inherit;
+}
+body[data-ds-dark-theme] #ocean-background-panel input[type="text"] {
+  border-color: rgba(160, 200, 215, .3);
+}
+#ocean-background-panel .ob-btn {
+  width: 100%; margin-top: 8px; padding: 4px 8px; border-radius: 6px;
+  border: 1px solid rgba(20, 60, 75, .24); background: rgba(20, 60, 75, .06);
+  color: inherit; font: inherit; cursor: pointer;
+}
+body[data-ds-dark-theme] #ocean-background-panel .ob-btn {
+  border-color: rgba(160, 200, 215, .28); background: rgba(160, 200, 215, .1);
+}
+#ocean-background-panel .ob-btn:disabled { opacity: .6; cursor: not-allowed; }

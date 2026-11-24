@@ -19,6 +19,22 @@
     "recovering": "Océan indisponible, interface inchangée",
     "mileageToday": "Parcouru aujourd’hui",
     "mileageFleet": "Parcouru",
-    "mileageUnit": "M"
+    "mileageUnit": "M",
+    "followTime": "Suivre l’heure réelle",
+    "timePreset": "Moment",
+    "presetDawn": "Aube",
+    "presetDay": "Midi",
+    "presetDusk": "Crépuscule",
+    "presetNight": "Minuit",
+    "followWeather": "Suivre la météo réelle",
+    "weatherPreset": "Météo",
+    "weatherClear": "Clair",
+    "weatherRain": "Pluie",
+    "weatherSnow": "Neige",
+    "useLocation": "Utiliser ma position",
+    "weatherLat": "Latitude",
+    "weatherLon": "Longitude",
+    "locating": "Localisation…",
+    "locationFailed": "Échec de localisation ; saisissez les coordonnées"
   }
 }

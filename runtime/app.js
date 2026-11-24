@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { createUniforms, DAY_PALETTE } from './env/palette.js';
+import { createUniforms, DAY_PALETTE, computeAtmosphere, blendAtmosphere } from './env/palette.js';
 import { qualityProfile, pixelRatioFor } from './env/quality.js';
 import { createSeaState, amplitudeForLevel } from './sim/sea-state.js';
 import { createFrameClock } from './sim/clock.js';
@@ -51,6 +51,12 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
   let selectedSessionId = null;
   let rootSessionId = null;
   let agentRunning = false;
+  let flagState = null;
+  let liveWeather = null;
+  let currentAtmo = computeAtmosphere();
+  let shakeElapsed = 0;
+  let shakeDuration = 0;
+  let shakeIntensity = 1;
 
   function post(payload) {
     if (!embedded) return;
@@ -146,6 +152,13 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
     });
     world.applySettings(settings);
     world.syncPosition(travelX);
+    currentAtmo = computeAtmosphere({
+      followTime: settings.followTime,
+      timePreset: settings.timePreset,
+      weather: settings.followWeather ? (liveWeather || 'clear') : settings.weatherPreset,
+    });
+    world.applyAtmosphere(currentAtmo);
+    if (flagState) world.setFlagState(flagState.hasCustom, flagState.version);
 
     voyage = createVoyageReporter({
       send: (body) => fetch('./voyage', {
@@ -178,8 +191,34 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
     world.syncPosition(travelX);
 
     const { sea, foam } = seaState.update(seconds);
-    uniforms.uSea.value = amplitudeForLevel(sea);
-    uniforms.uFoam.value = foam;
+    const activeWeather = settings.followWeather ? (liveWeather || 'clear') : settings.weatherPreset;
+    const targetAtmo = computeAtmosphere({
+      followTime: settings.followTime,
+      timePreset: settings.timePreset,
+      weather: activeWeather,
+    });
+    const blendAlpha = reducedMotion || seconds === 0 ? 1 : Math.min(1, seconds * 1.8);
+    currentAtmo = blendAtmosphere(currentAtmo, targetAtmo, blendAlpha);
+    world.applyAtmosphere(currentAtmo);
+
+    let shakeSea = 0;
+    let rollOffset = 0;
+    if (!reducedMotion && shakeDuration > 0 && shakeElapsed < shakeDuration) {
+      shakeElapsed += seconds;
+      const p = Math.min(1, shakeElapsed / shakeDuration);
+      const envelope = Math.sin(p * Math.PI) * (1 - p * 0.35);
+      shakeSea = envelope * 0.52 * shakeIntensity;
+      rollOffset = Math.sin(shakeElapsed * 9.5) * 0.24 * envelope * shakeIntensity;
+      if (shakeElapsed >= shakeDuration) {
+        shakeDuration = 0;
+        shakeElapsed = 0;
+      }
+    }
+
+    uniforms.uSea.value = amplitudeForLevel(sea) + currentAtmo.seaBoost + shakeSea;
+    uniforms.uFoam.value = foam + (shakeSea > 0.05 ? shakeSea * 0.5 : 0);
+
+
     uniforms.uTime.value = elapsed;
     uniforms.uFlow.value = reducedMotion ? 0 : elapsed;
 
@@ -193,6 +232,7 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
       flow: uniforms.uFlow.value,
       sea: uniforms.uSea.value,
       motion: !reducedMotion,
+      rollOffset,
     });
     renderer.render(scene, camera);
     announceReady();
@@ -281,7 +321,7 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
     if (normalized.enabled && !document.hidden) ensureBoot();
     if (booted) {
       if (cameraChanged || qualityChanged) world?.applySettings(settings);
-      if (cameraChanged) stillFrameNeeded = true;
+      if (cameraChanged || previous.followTime !== normalized.followTime || previous.timePreset !== normalized.timePreset || previous.followWeather !== normalized.followWeather || previous.weatherPreset !== normalized.weatherPreset) stillFrameNeeded = true;
       if (qualityChanged) applyQuality();
     }
     syncLifecycle();
@@ -313,13 +353,39 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
     if (!payload) return;
     if (payload.type === MESSAGE.settings) {
       settingsReceived = true;
+      liveWeather = payload.liveWeather === 'clear' || payload.liveWeather === 'rain' || payload.liveWeather === 'snow'
+        ? payload.liveWeather
+        : null;
       applySettings({
         ...(payload.settings && typeof payload.settings === 'object' ? payload.settings : {}),
         sessionId: payload.sessionId ?? null,
       });
       return;
     }
-    if (payload.type === MESSAGE.snapshot) applySnapshotData(payload.snapshot);
+    if (payload.type === MESSAGE.shake) {
+      if (!reducedMotion) {
+        shakeDuration = typeof payload.durationMs === 'number' && payload.durationMs > 0
+          ? payload.durationMs / 1000
+          : 4;
+        shakeElapsed = 0;
+        shakeIntensity = typeof payload.intensity === 'number' && payload.intensity > 0
+          ? payload.intensity
+          : 1;
+        stillFrameNeeded = true;
+        if (booted) syncLifecycle();
+      }
+      return;
+    }
+    if (payload.type === MESSAGE.snapshot) {
+      applySnapshotData(payload.snapshot);
+      return;
+    }
+    if (payload.type === MESSAGE.flag) {
+      flagState = { hasCustom: Boolean(payload.hasCustom), version: payload.version ?? Date.now() };
+      world?.setFlagState(flagState.hasCustom, flagState.version);
+      stillFrameNeeded = true;
+      if (booted) syncLifecycle();
+    }
   }
 
   function onResize() {

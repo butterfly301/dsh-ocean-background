@@ -14,9 +14,10 @@ window.__ModuleLoader__.load({
     const UI_NS = 'ocean-background-ui';
     const READY_TIMEOUT = 8000;
     const SNAPSHOT_MS = 1000;
+    const WEATHER_REFRESH_MS = 15 * 60 * 1000;
+    const WEATHER_STALE_MS = 60 * 60 * 1000;
     const PERSIST_MS = 250;
     const METERS_PER_NM = 1852;
-
 
     const FALLBACK_TEXT = {
       open: 'Ocean settings',
@@ -35,9 +36,23 @@ window.__ModuleLoader__.load({
       mileageToday: 'Sailed today',
       mileageFleet: 'Sailed',
       mileageUnit: 'nm',
+      followTime: 'Follow real time',
+      timePreset: 'Time preset',
+      presetDawn: 'Dawn',
+      presetDay: 'Noon',
+      presetDusk: 'Dusk',
+      presetNight: 'Midnight',
+      followWeather: 'Follow real weather',
+      weatherPreset: 'Weather',
+      weatherClear: 'Clear',
+      weatherRain: 'Rain',
+      weatherSnow: 'Snow',
+      useLocation: 'Use current location',
+      weatherLat: 'Latitude',
+      weatherLon: 'Longitude',
+      locating: 'Locating…',
+      locationFailed: 'Location failed; enter coordinates manually',
     };
-
-
 
     const SKIN_VARS = [
       '--ob-light',
@@ -199,7 +214,7 @@ window.__ModuleLoader__.load({
       };
     }
 
-    function createPanel({ contract, settings, getText }) {
+    function createPanel({ contract, settings, getText, onLocate = () => {} }) {
       const { SETTINGS_SCHEMA } = contract;
       const { order, fields } = SETTINGS_SCHEMA;
       const panel = document.createElement('div');
@@ -213,7 +228,24 @@ window.__ModuleLoader__.load({
       title.dataset.obText = 'open';
       panel.appendChild(title);
 
+      let geoNote = null;
+      let locateBtn = null;
+
       for (const key of order) {
+        if (key === 'weatherLat') {
+          locateBtn = document.createElement('button');
+          locateBtn.type = 'button';
+          locateBtn.className = 'ob-btn';
+          locateBtn.dataset.obText = 'useLocation';
+          locateBtn.addEventListener('click', () => onLocate());
+          panel.appendChild(locateBtn);
+
+          geoNote = document.createElement('p');
+          geoNote.className = 'ob-note';
+          geoNote.hidden = true;
+          panel.appendChild(geoNote);
+        }
+
         const spec = fields[key];
         const row = document.createElement('div');
         row.className = 'ob-row';
@@ -239,6 +271,13 @@ window.__ModuleLoader__.load({
             option.dataset.obOption = spec.optionLabels?.[value] ?? value;
             input.appendChild(option);
           }
+          row.appendChild(input);
+        } else if (spec.control === 'coord') {
+          input = document.createElement('input');
+          input.type = 'text';
+          input.inputMode = 'decimal';
+          input.id = inputId;
+          input.placeholder = spec.min === -90 ? '-90..90' : '-180..180';
           row.appendChild(input);
         } else {
           output = document.createElement('output');
@@ -278,11 +317,18 @@ window.__ModuleLoader__.load({
             settings.set({ [key]: Number(input.value) / 100 });
           } else if (spec.type === 'number') {
             settings.set({ [key]: Number(input.value) });
+          } else if (key === 'timePreset') {
+            settings.set({ followTime: false, timePreset: input.value });
+          } else if (key === 'weatherPreset') {
+            settings.set({ followWeather: false, weatherPreset: input.value });
+          } else if (spec.control === 'coord') {
+            settings.set({ [key]: input.value });
+            input.value = settings.current[key];
           } else {
             settings.set({ [key]: input.value });
           }
         });
-        controls.set(key, { spec, input, output });
+        controls.set(key, { spec, row, input, output });
       }
 
       const hint = document.createElement('p');
@@ -298,7 +344,9 @@ window.__ModuleLoader__.load({
 
       function sync() {
         const current = settings.current;
-        for (const [key, { spec, input, output }] of controls) {
+        for (const [key, { spec, row, input, output }] of controls) {
+          if (key === 'timePreset') row.hidden = Boolean(current.followTime);
+          else if (key === 'weatherPreset') row.hidden = Boolean(current.followWeather);
           const value = current[key];
           if (spec.type === 'boolean') {
             input.checked = value;
@@ -333,6 +381,13 @@ window.__ModuleLoader__.load({
         sync,
         refreshText,
         setNoteVisible(visible) { note.hidden = !visible; },
+        setLocating(busy, message = '') {
+          if (locateBtn) locateBtn.disabled = Boolean(busy);
+          if (geoNote) {
+            geoNote.textContent = message;
+            geoNote.hidden = !message;
+          }
+        },
       };
     }
 
@@ -457,13 +512,18 @@ window.__ModuleLoader__.load({
     }
 
     function createDeck(ctx, contract) {
-      const { MESSAGE, SETTINGS_SCHEMA, readMessage, settingsMessage, snapshotMessage } = contract;
+      const { MESSAGE, SETTINGS_SCHEMA, readMessage, settingsMessage, snapshotMessage, flagMessage, shakeMessage } = contract;
       const root = document.documentElement;
       const state = {
         disposed: false,
         revealed: false,
         selectedSessionId: null,
         lastSnapshot: null,
+        lastFlag: null,
+        liveWeather: null,
+        lastWeatherOkAt: 0,
+        weatherTimer: 0,
+        weatherCoordKey: '',
         pollTimer: 0,
         pollRequest: null,
         pollGeneration: 0,
@@ -496,7 +556,32 @@ window.__ModuleLoader__.load({
       const dock = document.createElement('div');
       dock.id = DOCK_ID;
 
-      panel = createPanel({ contract, settings, getText: text });
+      panel = createPanel({
+        contract,
+        settings,
+        getText: text,
+        onLocate: () => {
+          if (typeof fetch !== 'function') return;
+          panel.setLocating(true, text().locating);
+          fetch(`${BASE}/geo`, { cache: 'no-store' })
+            .then((res) => (res && res.ok ? res.json() : null))
+            .then((payload) => {
+              if (state.disposed) return;
+              if (!payload || !payload.ok) {
+                panel.setLocating(false, text().locationFailed);
+                return;
+              }
+              panel.setLocating(false, '');
+              settings.set({
+                weatherLat: String(payload.lat),
+                weatherLon: String(payload.lon),
+              });
+            })
+            .catch(() => {
+              if (!state.disposed) panel.setLocating(false, text().locationFailed);
+            });
+        },
+      });
       frame = createFrameHost({
         contract,
         onLoad: () => postSettings(),
@@ -534,7 +619,25 @@ window.__ModuleLoader__.load({
 
       function postSettings() {
         if (!frame.mounted) return;
-        frame.post(settingsMessage(settings.current, state.selectedSessionId));
+        frame.post(settingsMessage(settings.current, state.selectedSessionId, state.liveWeather));
+      }
+
+      function postFlag(hasCustom, version = Date.now()) {
+        state.lastFlag = { hasCustom: Boolean(hasCustom), version };
+        if (frame.mounted) {
+          frame.post(flagMessage(state.lastFlag.hasCustom, state.lastFlag.version));
+        }
+      }
+
+      function fetchFlagState() {
+        if (typeof fetch !== 'function') return;
+        fetch(`${BASE}/flag`, { cache: 'no-store' })
+          .then((res) => (res && res.ok ? res.json() : null))
+          .then((payload) => {
+            if (state.disposed || !payload || !payload.ok) return;
+            postFlag(payload.hasCustom, payload.updatedAt || Date.now());
+          })
+          .catch(() => {});
       }
 
       function stopPoll() {
@@ -543,6 +646,59 @@ window.__ModuleLoader__.load({
         state.pollGeneration += 1;
         try { state.pollRequest?.abort(); } catch {}
         state.pollRequest = null;
+      }
+
+      function stopWeatherPoll() {
+        if (state.weatherTimer !== 0) {
+          window.clearInterval(state.weatherTimer);
+          state.weatherTimer = 0;
+        }
+      }
+
+      function pollWeather() {
+        if (state.disposed || !settings.current.enabled || !settings.current.followWeather) return;
+        const { weatherLat, weatherLon } = settings.current;
+        if (!weatherLat || !weatherLon || typeof fetch !== 'function') return;
+        fetch(`${BASE}/weather?lat=${encodeURIComponent(weatherLat)}&lon=${encodeURIComponent(weatherLon)}`, { cache: 'no-store' })
+          .then((res) => (res && res.ok ? res.json() : null))
+          .then((payload) => {
+            if (state.disposed) return;
+            if (payload && payload.ok && payload.weather) {
+              state.lastWeatherOkAt = Date.now();
+              if (state.liveWeather !== payload.weather) {
+                state.liveWeather = payload.weather;
+                postSettings();
+              }
+              return;
+            }
+            if (state.liveWeather && state.lastWeatherOkAt > 0 && Date.now() - state.lastWeatherOkAt > WEATHER_STALE_MS) {
+              state.liveWeather = 'clear';
+              postSettings();
+            }
+          })
+          .catch(() => {
+            if (state.disposed) return;
+            if (state.liveWeather && state.lastWeatherOkAt > 0 && Date.now() - state.lastWeatherOkAt > WEATHER_STALE_MS) {
+              state.liveWeather = 'clear';
+              postSettings();
+            }
+          });
+      }
+
+      function syncWeatherPoll() {
+        const active = settings.current.enabled && settings.current.followWeather;
+        const coordKey = `${settings.current.weatherLat},${settings.current.weatherLon}`;
+        if (!active) {
+          stopWeatherPoll();
+          return;
+        }
+        if (state.weatherTimer === 0) {
+          state.weatherTimer = window.setInterval(pollWeather, WEATHER_REFRESH_MS);
+        }
+        if (coordKey !== state.weatherCoordKey || state.lastWeatherOkAt === 0) {
+          state.weatherCoordKey = coordKey;
+          pollWeather();
+        }
       }
 
       function schedulePoll() {
@@ -599,6 +755,7 @@ window.__ModuleLoader__.load({
           state.revealed = true;
           applySkin();
           postSettings();
+          if (state.lastFlag) frame.post(flagMessage(state.lastFlag.hasCustom, state.lastFlag.version));
           if (state.lastSnapshot) frame.post(snapshotMessage(state.lastSnapshot));
           renderMileage();
           return;
@@ -654,6 +811,7 @@ window.__ModuleLoader__.load({
           mileage.hide();
         }
         wasEnabled = settings.current.enabled;
+        syncWeatherPoll();
         postSettings();
       };
       const stopSettings = settings.subscribe(onSettingsChange);
@@ -703,11 +861,28 @@ window.__ModuleLoader__.load({
         poll();
       }
 
+      const onShakeEvent = (event) => {
+        if (state.disposed || !settings.current.enabled || !frame.mounted) return;
+        const detail = event?.detail;
+        frame.post(shakeMessage(detail?.durationMs ?? 4000, detail?.intensity ?? 1));
+      };
+
+      const onFlagChangedEvent = (event) => {
+        const detail = event?.detail;
+        if (!detail || typeof detail !== 'object') {
+          fetchFlagState();
+          return;
+        }
+        postFlag(Boolean(detail.hasCustom), detail.version || Date.now());
+      };
+
       button.addEventListener('click', onButtonClick);
       document.addEventListener('keydown', onKeyDown);
       document.addEventListener('pointerdown', onPointerDown);
       document.addEventListener('visibilitychange', onVisibility);
       window.addEventListener('message', onFrameMessage);
+      window.addEventListener('dsh:ocean-flag-changed', onFlagChangedEvent);
+      window.addEventListener('dsh:window-shake', onShakeEvent);
 
       dock.appendChild(mileage.element);
       dock.appendChild(button);
@@ -725,6 +900,8 @@ window.__ModuleLoader__.load({
       frame.mount();
       frame.setVisible(settings.current.enabled);
       applySkin();
+      fetchFlagState();
+      syncWeatherPoll();
       startPolling();
 
       return function teardown() {
@@ -734,7 +911,10 @@ window.__ModuleLoader__.load({
         stopLocaleText();
         stopSelection();
         stopPoll();
+        stopWeatherPoll();
         window.removeEventListener('message', onFrameMessage);
+        window.removeEventListener('dsh:ocean-flag-changed', onFlagChangedEvent);
+        window.removeEventListener('dsh:window-shake', onShakeEvent);
         document.removeEventListener('keydown', onKeyDown);
         document.removeEventListener('pointerdown', onPointerDown);
         document.removeEventListener('visibilitychange', onVisibility);

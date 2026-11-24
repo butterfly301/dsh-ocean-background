@@ -8,6 +8,7 @@ const TARGET_LENGTH = 10;
 const DRAFT_RATIO = 0.091;
 
 const isSail = (name) => /^StylShip_Sail/i.test(name);
+const isMainFlag = (name) => /^StylShip_MainFlag$/i.test(name);
 
 function stripEmissive(material) {
   if (!material) return material;
@@ -127,10 +128,40 @@ export function prepareShip(gltf) {
   root.position.x -= center.x;
   root.position.z -= center.z;
   root.position.y -= scaled.min.y + TARGET_LENGTH * DRAFT_RATIO;
+  root.updateMatrixWorld(true);
+
+  const fencingBackBox = new THREE.Box3();
+  const floorBackTopBox = new THREE.Box3();
+  const mastMidBox = new THREE.Box3();
+  root.traverse((node) => {
+    if (!node.isMesh) return;
+    if (/^StylShip_FencingBack\b/i.test(node.name)) fencingBackBox.expandByObject(node);
+    else if (/^StylShip_FloorBackTop\b/i.test(node.name)) floorBackTopBox.expandByObject(node);
+    else if (/^StylShip_MastMid\b/i.test(node.name)) mastMidBox.expandByObject(node);
+  });
+
+  const sternAnchor = !fencingBackBox.isEmpty()
+    ? new THREE.Vector3(
+      fencingBackBox.max.x - 0.06,
+      fencingBackBox.max.y + 0.16,
+      (fencingBackBox.min.z + fencingBackBox.max.z) * 0.5,
+    )
+    : !floorBackTopBox.isEmpty()
+      ? new THREE.Vector3(floorBackTopBox.max.x - 0.08, floorBackTopBox.max.y + 0.28, 0)
+      : new THREE.Vector3(scaled.max.x * 0.92, 1.8, 0);
+
+  const mastAnchor = !mastMidBox.isEmpty()
+    ? new THREE.Vector3(
+      (mastMidBox.min.x + mastMidBox.max.x) * 0.5,
+      mastMidBox.min.y + (mastMidBox.max.y - mastMidBox.min.y) * 0.67,
+      -0.28,
+    )
+    : new THREE.Vector3(0.6, 4.2, -0.28);
 
   pivot.add(root);
 
   const sails = [];
+  const mainFlags = [];
   root.traverse((node) => {
     if (!node.isMesh) return;
     const material = Array.isArray(node.material) ? node.material[0] : node.material;
@@ -151,24 +182,31 @@ export function prepareShip(gltf) {
       node.material = rebuilt;
       node.castShadow = false;
       sails.push(node);
+    } else if (isMainFlag(name)) {
+      // Clone material so replacing StylShip_MainFlag never mutates Flag1 or Flag2.
+      const flagMaterial = material && typeof material.clone === 'function'
+        ? material.clone()
+        : new THREE.MeshStandardMaterial({ color: 0xffffff, side: THREE.DoubleSide });
+      stripEmissive(flagMaterial);
+      flagMaterial.side = THREE.DoubleSide;
+      node.material = flagMaterial;
+      mainFlags.push({ mesh: node, material: flagMaterial, defaultMap: flagMaterial.map || null });
     } else {
       stripEmissive(node.material);
     }
   });
 
-  mergeStaticParts(root, sails);
+  mergeStaticParts(root, [...sails, ...mainFlags.map((entry) => entry.mesh)]);
 
   const cx = new THREE.Box3().setFromObject(root).getCenter(new THREE.Vector3()).x;
   for (const mesh of sails) bakeFurl(mesh, cx);
 
-  const hullHeight = scaled.max.y - scaled.min.y;
-  const draft = TARGET_LENGTH * DRAFT_RATIO;
-  const halfLength = (scaled.max.x - scaled.min.x) / 2;
-  const deckY = hullHeight - draft;
   const anchors = {
-    stern: new THREE.Vector3(-halfLength * 0.92, deckY + 0.25, 0),
-    mast: new THREE.Vector3(0, deckY + TARGET_LENGTH * 0.45, 0),
+    stern: sternAnchor,
+    mast: mastAnchor,
   };
+
+  let customFlagTexture = null;
 
   return {
     pivot,
@@ -177,6 +215,16 @@ export function prepareShip(gltf) {
       const a = THREE.MathUtils.clamp(amount01, 0, 1);
       for (const mesh of sails) {
         if (mesh.morphTargetInfluences) mesh.morphTargetInfluences[0] = a;
+      }
+    },
+    setFlagTexture(texture) {
+      if (customFlagTexture && customFlagTexture !== texture) {
+        try { customFlagTexture.dispose(); } catch {}
+      }
+      customFlagTexture = texture || null;
+      for (const entry of mainFlags) {
+        entry.material.map = customFlagTexture || entry.defaultMap;
+        entry.material.needsUpdate = true;
       }
     },
   };

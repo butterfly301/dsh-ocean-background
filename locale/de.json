@@ -19,6 +19,22 @@
     "recovering": "Meer nicht bereit, Oberfläche unverändert",
     "mileageToday": "Heute gesegelt",
     "mileageFleet": "Gesegelt",
-    "mileageUnit": "sm"
+    "mileageUnit": "sm",
+    "followTime": "Echtzeit folgen",
+    "timePreset": "Tageszeit",
+    "presetDawn": "Morgendämmerung",
+    "presetDay": "Mittag",
+    "presetDusk": "Abenddämmerung",
+    "presetNight": "Mitternacht",
+    "followWeather": "Echtem Wetter folgen",
+    "weatherPreset": "Wetter",
+    "weatherClear": "Klar",
+    "weatherRain": "Regen",
+    "weatherSnow": "Schnee",
+    "useLocation": "Aktuellen Standort verwenden",
+    "weatherLat": "Breitengrad",
+    "weatherLon": "Längengrad",
+    "locating": "Ortung…",
+    "locationFailed": "Ortung fehlgeschlagen; Koordinaten manuell eingeben"
   }
 }

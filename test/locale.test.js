@@ -22,6 +22,22 @@ const REQUIRED = [
   'mileageToday',
   'mileageFleet',
   'mileageUnit',
+  'followTime',
+  'timePreset',
+  'presetDawn',
+  'presetDay',
+  'presetDusk',
+  'presetNight',
+  'followWeather',
+  'weatherPreset',
+  'weatherClear',
+  'weatherRain',
+  'weatherSnow',
+  'useLocation',
+  'weatherLat',
+  'weatherLon',
+  'locating',
+  'locationFailed',
 ];
 
 test('every locale ships the complete UI dictionary', async () => {

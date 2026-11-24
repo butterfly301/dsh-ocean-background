@@ -19,6 +19,22 @@
     "recovering": "Море не готово, интерфейс не изменён",
     "mileageToday": "Пройдено сегодня",
     "mileageFleet": "Пройдено",
-    "mileageUnit": "миль"
+    "mileageUnit": "миль",
+    "followTime": "Реальное время",
+    "timePreset": "Время суток",
+    "presetDawn": "Рассвет",
+    "presetDay": "Полдень",
+    "presetDusk": "Закат",
+    "presetNight": "Полночь",
+    "followWeather": "Реальная погода",
+    "weatherPreset": "Погода",
+    "weatherClear": "Ясно",
+    "weatherRain": "Дождь",
+    "weatherSnow": "Снег",
+    "useLocation": "Моё местоположение",
+    "weatherLat": "Широта",
+    "weatherLon": "Долгота",
+    "locating": "Определение…",
+    "locationFailed": "Не удалось определить; введите координаты"
   }
 }

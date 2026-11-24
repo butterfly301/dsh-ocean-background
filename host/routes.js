@@ -1,12 +1,18 @@
 import { readFile, stat } from 'node:fs/promises';
 import { extname, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { MAX_FLAG_BYTES } from './flag-store.js';
 import { describeError, logOnce } from './session-state.js';
 import { snapshotErrorPayload } from './snapshot.js';
+import { createWeatherService } from './weather.js';
 
 const BASE = '/ocean-background';
 const SNAPSHOT_PATH = `${BASE}/snapshot`;
 const VOYAGE_PATH = `${BASE}/voyage`;
+const FLAG_PATH = `${BASE}/flag`;
+const FLAG_IMAGE_PATH = `${BASE}/flag/image`;
+const GEO_PATH = `${BASE}/geo`;
+const WEATHER_PATH = `${BASE}/weather`;
 const LOCALE_PREFIX = `${BASE}/locale/`;
 const RUNTIME_ROOT = resolve(fileURLToPath(new URL('../runtime/', import.meta.url)));
 const LOCALE_ROOT = resolve(fileURLToPath(new URL('../locale/', import.meta.url)));
@@ -236,7 +242,105 @@ async function serveStatic(req, res, pathname) {
   res.end(req.method === 'HEAD' ? undefined : body);
 }
 
-export function installRoutes(ctx, { ledger, readSnapshot }) {
+function sendJsonStatus(req, res, status, payload, cacheControl = 'no-store') {
+  const body = Buffer.from(JSON.stringify(payload));
+  res.writeHead(status, baseHeaders({
+    'cache-control': cacheControl,
+    'content-length': String(body.byteLength),
+    'content-type': 'application/json; charset=utf-8',
+  }));
+  res.end(req.method === 'HEAD' ? undefined : body);
+}
+
+function readBinaryBody(req, limitBytes) {
+  return new Promise((resolvePromise, rejectPromise) => {
+    const chunks = [];
+    let size = 0;
+    let settled = false;
+    const fail = (error) => {
+      if (settled) return;
+      settled = true;
+      rejectPromise(error);
+    };
+    req.on('data', (chunk) => {
+      if (settled) return;
+      size += chunk.length;
+      if (size > limitBytes) {
+        const err = new Error('body too large');
+        err.status = 413;
+        fail(err);
+        return;
+      }
+      chunks.push(chunk);
+    });
+    req.on('end', () => {
+      if (settled) return;
+      settled = true;
+      resolvePromise(Buffer.concat(chunks));
+    });
+    req.on('error', fail);
+  });
+}
+
+async function serveFlagMeta(flagStore, req, res) {
+  if (!flagStore) {
+    sendJsonStatus(req, res, 200, { ok: true, hasCustom: false, mime: null, updatedAt: null });
+    return;
+  }
+  const info = await flagStore.inspect();
+  sendJsonStatus(req, res, 200, { ok: true, ...info });
+}
+
+async function serveFlagImage(flagStore, req, res) {
+  if (!flagStore) {
+    finish(res, 204);
+    return;
+  }
+  const img = await flagStore.readImage();
+  if (!img) {
+    finish(res, 204);
+    return;
+  }
+  res.writeHead(200, baseHeaders({
+    'cache-control': 'no-store',
+    'content-length': String(img.buffer.byteLength),
+    'content-type': img.mime,
+  }));
+  res.end(req.method === 'HEAD' ? undefined : img.buffer);
+}
+
+async function serveFlagUpload(flagStore, req, res) {
+  if (!flagStore) {
+    sendJsonStatus(req, res, 503, { ok: false, error: 'flag storage unavailable' });
+    return;
+  }
+  let body;
+  try {
+    body = await readBinaryBody(req, MAX_FLAG_BYTES);
+  } catch (error) {
+    const status = error?.status === 413 ? 413 : 400;
+    sendJsonStatus(req, res, status, { ok: false, error: error?.message || 'invalid body' });
+    return;
+  }
+  try {
+    const saved = await flagStore.saveImage(body);
+    sendJsonStatus(req, res, 200, { ok: true, ...saved });
+  } catch (error) {
+    const status = typeof error?.status === 'number' ? error.status : 400;
+    sendJsonStatus(req, res, status, { ok: false, error: error?.message || 'invalid image' });
+  }
+}
+
+async function serveFlagDelete(flagStore, req, res) {
+  if (!flagStore) {
+    sendJsonStatus(req, res, 503, { ok: false, error: 'flag storage unavailable' });
+    return;
+  }
+  const cleared = await flagStore.clearImage();
+  sendJsonStatus(req, res, 200, { ok: true, ...cleared });
+}
+
+export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, weatherService = createWeatherService() }) {
   return ctx.webServer.register({
     kind: 'prefix',
     path: BASE,
@@ -272,6 +376,77 @@ export function installRoutes(ctx, { ledger, readSnapshot }) {
           logOnce(ctx, 'warn', 'voyage-route', `ocean-background: voyage route failed: ${describeError(error)}`);
           finish(res, 500);
         });
+        return;
+      }
+
+      if (pathname === FLAG_PATH) {
+        if (isRead) {
+          void serveFlagMeta(flagStore, req, res).catch((error) => {
+            logOnce(ctx, 'warn', 'flag-route', `ocean-background: flag route failed: ${describeError(error)}`);
+            finish(res, 500);
+          });
+          return;
+        }
+        if (req.method === 'POST') {
+          void serveFlagUpload(flagStore, req, res).catch((error) => {
+            logOnce(ctx, 'warn', 'flag-upload', `ocean-background: flag upload failed: ${describeError(error)}`);
+            finish(res, 500);
+          });
+          return;
+        }
+        if (req.method === 'DELETE') {
+          void serveFlagDelete(flagStore, req, res).catch((error) => {
+            logOnce(ctx, 'warn', 'flag-delete', `ocean-background: flag delete failed: ${describeError(error)}`);
+            finish(res, 500);
+          });
+          return;
+        }
+        finish(res, 405);
+        return;
+      }
+
+      if (pathname === FLAG_IMAGE_PATH) {
+        if (!isRead) {
+          finish(res, 405);
+          return;
+        }
+        void serveFlagImage(flagStore, req, res).catch((error) => {
+          logOnce(ctx, 'warn', 'flag-image', `ocean-background: flag image failed: ${describeError(error)}`);
+          finish(res, 500);
+        });
+        return;
+      }
+
+      if (pathname === GEO_PATH) {
+        if (!isRead) {
+          finish(res, 405);
+          return;
+        }
+        void weatherService.locateByIp()
+          .then((payload) => sendJsonStatus(req, res, 200, payload))
+          .catch((error) => {
+            logOnce(ctx, 'warn', 'geo-route', `ocean-background: geo route failed: ${describeError(error)}`);
+            sendJsonStatus(req, res, 502, { ok: false, error: describeError(error) });
+          });
+        return;
+      }
+
+      if (pathname === WEATHER_PATH) {
+        if (!isRead) {
+          finish(res, 405);
+          return;
+        }
+        const lat = url.searchParams.get('lat');
+        const lon = url.searchParams.get('lon');
+        void weatherService.fetchWeather(lat, lon)
+          .then((payload) => sendJsonStatus(req, res, 200, payload))
+          .catch((error) => {
+            const status = error?.status === 400 ? 400 : 502;
+            if (status !== 400) {
+              logOnce(ctx, 'warn', 'weather-route', `ocean-background: weather route failed: ${describeError(error)}`);
+            }
+            sendJsonStatus(req, res, status, { ok: false, error: describeError(error) });
+          });
         return;
       }
 

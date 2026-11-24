@@ -5,6 +5,8 @@ import { createWind } from './wind.js';
 import { createScenery } from './scenery.js';
 import { loadShip, loadDinghy } from './ship.js';
 import { createFleet } from './fleet.js';
+import { createShipLanterns } from './lanterns.js';
+import { createWeatherEffects } from './weather.js';
 import { disposeObject3D } from './resources.js';
 import { viewForCamera } from '../sim/berth.js';
 import { sampleWaveAt } from '../sim/wave-field.js';
@@ -12,7 +14,6 @@ import { toWorldX, cameraXForShip } from '../sim/world-motion.js';
 import { qualityProfile } from '../env/quality.js';
 
 const SHIP_X = 0;
-
 
 export function createWorld({
   scene,
@@ -30,7 +31,8 @@ export function createWorld({
   sunLight.position.copy(uniforms.uSunDir.value).multiplyScalar(120);
   sunLight.target.position.set(0, 0, 0);
   scene.add(sunLight, sunLight.target);
-  scene.add(new THREE.HemisphereLight(0xd2e8f3, 0x1a515e, 1.45));
+  const hemiLight = new THREE.HemisphereLight(0xd2e8f3, 0x1a515e, 1.45);
+  scene.add(hemiLight);
 
   const sky = createSky(uniforms);
   scene.add(sky);
@@ -42,14 +44,49 @@ export function createWorld({
 
   const wind = createWind(camera, { random });
   const scenery = createScenery(scene, camera, { random });
+  const weatherEffects = createWeatherEffects(scene, { random });
 
   let ship = null;
+  let lanterns = null;
   let dinghy = null;
   let fleet = null;
   let settings = null;
   let travelX = 0;
   let disposed = false;
   let shipFurl = 0;
+  let pendingFlag = null;
+  let flagSeq = 0;
+  let nightWeight = 0;
+  let currentWeather = 'clear';
+
+  function applyFlagState() {
+    if (!ship || pendingFlag === null) return;
+    const spec = pendingFlag;
+    const seq = ++flagSeq;
+    if (!spec.hasCustom) {
+      ship.setFlagTexture(null);
+      onAssetReady();
+      return;
+    }
+    const loader = new THREE.TextureLoader();
+    loader.load(`./flag/image?v=${encodeURIComponent(String(spec.version ?? ''))}`, (texture) => {
+      if (disposed || seq !== flagSeq || !ship) {
+        texture.dispose();
+        return;
+      }
+      texture.colorSpace = THREE.SRGBColorSpace;
+      texture.flipY = false;
+      ship.setFlagTexture(texture);
+      onAssetReady();
+    });
+  }
+
+  function setFlagState(hasCustom, version = Date.now()) {
+    const nextHas = Boolean(hasCustom);
+    if (pendingFlag && pendingFlag.hasCustom === nextHas && pendingFlag.version === version) return;
+    pendingFlag = { hasCustom: nextHas, version };
+    applyFlagState();
+  }
 
   function cameraView() {
     if (!camera || !vesselRoot) return undefined;
@@ -83,11 +120,13 @@ export function createWorld({
         return;
       }
       ship = loaded;
+      lanterns = createShipLanterns(ship.pivot, ship.anchors);
       ship.pivot.position.set(SHIP_X, 0, 0);
       vesselRoot.add(ship.pivot);
       uniforms.uShadow.value = 1;
       uniforms.uWake.value = 1;
       uniforms.uShipPos.value.set(toWorldX(SHIP_X, travelX), 0, 0);
+      if (pendingFlag !== null) applyFlagState();
       if (dinghy) attachFleet();
       onAssetReady();
     }).catch((error) => {
@@ -135,13 +174,38 @@ export function createWorld({
     uniforms.uShipPos.value.set(toWorldX(SHIP_X, travelX), 0, 0);
   }
 
-  function bobShip(time, flow, sea) {
+  function applyAtmosphere(atmo) {
+    if (!atmo) return;
+    uniforms.uSkyZenith.value.set(atmo.skyZenith);
+    uniforms.uSkyHorizon.value.set(atmo.skyHorizon);
+    uniforms.uSunDir.value.set(atmo.sunDir.x, atmo.sunDir.y, atmo.sunDir.z).normalize();
+    uniforms.uSunColor.value.set(atmo.sunColor);
+    uniforms.uDeep.value.set(atmo.deep);
+    uniforms.uShallow.value.set(atmo.shallow);
+    uniforms.uFoamColor.value.set(atmo.foam);
+    uniforms.uCloud.value = atmo.cloud;
+    if (scene?.fog) scene.fog.color.set(atmo.skyHorizon);
+    sunLight.color.set(atmo.sunColor);
+    sunLight.intensity = atmo.sunIntensity;
+    sunLight.position.set(
+      travelX + uniforms.uSunDir.value.x * 120,
+      uniforms.uSunDir.value.y * 120,
+      uniforms.uSunDir.value.z * 120,
+    );
+    hemiLight.color.set(atmo.hemiSky);
+    hemiLight.groundColor.set(atmo.hemiGround);
+    hemiLight.intensity = atmo.hemiIntensity;
+    nightWeight = atmo.nightWeight ?? 0;
+    currentWeather = atmo.weather ?? 'clear';
+  }
+
+  function bobShip(time, flow, sea, rollOffset = 0) {
     if (!ship) return;
     const worldX = toWorldX(SHIP_X, travelX);
     const wave = sampleWaveAt(worldX, 0, time, flow, sea);
     ship.pivot.position.y = wave.height * 0.92 - 0.15;
     ship.pivot.rotation.z = -wave.dx * 0.75;
-    ship.pivot.rotation.x = wave.dz * 1.15;
+    ship.pivot.rotation.x = wave.dz * 1.15 + rollOffset;
   }
 
   function setFurl(amount) {
@@ -151,12 +215,21 @@ export function createWorld({
 
   function update(dt, frame) {
     if (disposed) return;
-    const { time, flow, sea, motion = true } = frame;
-    bobShip(time, flow, sea);
-    if (fleet) fleet.update(dt, { time, flow, sea, worldOffset: travelX });
+    const { time, flow, sea, motion = true, rollOffset = 0 } = frame;
+    const cameraX = cameraXForShip(travelX, SHIP_X, settings?.cameraXOffset ?? 0);
+    bobShip(time, flow, sea, rollOffset);
+    if (lanterns) lanterns.update(time, nightWeight, settings?.quality ?? 'balanced');
+    if (fleet) fleet.update(dt, { time, flow, sea, worldOffset: travelX, rollOffset });
+    weatherEffects.update(dt, {
+      weather: currentWeather,
+      quality: settings?.quality ?? 'balanced',
+      motion,
+      cameraX,
+      time,
+    });
     if (!motion) return;
     wind.update(dt);
-    scenery.update(dt, time, cameraXForShip(travelX, SHIP_X, settings?.cameraXOffset ?? 0));
+    scenery.update(dt, time, cameraX);
   }
 
   loadAssets();
@@ -166,6 +239,8 @@ export function createWorld({
     syncPosition,
     syncFleet,
     setFurl,
+    setFlagState,
+    applyAtmosphere,
     update,
     get ship() { return ship; },
     get fleet() { return fleet; },
@@ -182,6 +257,7 @@ export function createWorld({
       disposed = true;
       try { fleet?.dispose(); } catch {}
       try { wind.dispose(); } catch {}
+      try { weatherEffects.dispose(); } catch {}
       try { scenery.dispose(); } catch {}
       if (ship) {
         try { disposeObject3D(ship.pivot); } catch {}
@@ -197,7 +273,8 @@ export function createWorld({
       if (sky) {
         try { sky.geometry.dispose(); sky.material.dispose(); } catch {}
       }
-      try { scene.remove(vesselRoot, sunLight, sunLight.target, sky, ocean); } catch {}
+      try { scene.remove(vesselRoot, sunLight, sunLight.target, hemiLight, sky, ocean); } catch {}
+      lanterns = null;
       fleet = null;
       settings = null;
     },

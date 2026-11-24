@@ -17,6 +17,12 @@ test('settings schema defaults form a complete object', () => {
   }
   assert.equal(settings.enabled, true);
   assert.equal(settings.quality, 'balanced');
+  assert.equal(settings.followTime, false);
+  assert.equal(settings.timePreset, 'day');
+  assert.equal(settings.followWeather, false);
+  assert.equal(settings.weatherPreset, 'clear');
+  assert.equal(settings.weatherLat, '');
+  assert.equal(settings.weatherLon, '');
   assert.deepEqual(Object.keys(settings), Object.keys(SETTINGS_SCHEMA.fields));
 });
 
@@ -28,6 +34,9 @@ test('numbers are clamped and snapped to the slider step', () => {
   assert.equal(normalizeSettings({ cameraPitch: -100 }).cameraPitch, -30);
   assert.equal(normalizeSettings({ cameraPitch: 12.34 }).cameraPitch, 12.3);
   assert.equal(normalizeSettings({ cameraXOffset: 99 }).cameraXOffset, 8);
+  assert.equal(normalizeSettings({ weatherLat: '31.230416' }).weatherLat, '31.23');
+  assert.equal(normalizeSettings({ weatherLon: '121.473701' }).weatherLon, '121.47');
+  assert.equal(normalizeSettings({ weatherLat: '999' }).weatherLat, '');
 });
 
 test('invalid values fall back to defaults', () => {

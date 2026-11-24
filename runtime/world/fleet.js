@@ -112,7 +112,7 @@ export function createFleet({ scene, makeDinghy, getView, random = Math.random }
     }
   }
 
-  function update(dt, { time, flow, sea, worldOffset = 0 }) {
+  function update(dt, { time, flow, sea, worldOffset = 0, rollOffset = 0 }) {
     const view = readView();
     if (view) berthAllocator.setView(view);
     for (const [id, boat] of boats) {
@@ -156,7 +156,7 @@ export function createFleet({ scene, makeDinghy, getView, random = Math.random }
       const wave = sampleWaveAt(worldX, group.position.z, time, flow, sea);
       group.position.y = wave.height * 0.95;
       group.rotation.z = -wave.dx * 2.6 + Math.sin(time * 1.3 + boat.bob) * 0.015;
-      group.rotation.x = wave.dz * 2.8;
+      group.rotation.x = wave.dz * 2.8 + rollOffset * 1.15;
 
       boat.row += (boat.targetRow - boat.row) * Math.min(1, dt * 1.5);
       for (const paddle of boat.paddles) {

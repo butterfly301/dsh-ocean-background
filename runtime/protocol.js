@@ -1,10 +1,10 @@
-
-
 export const PROTOCOL_VERSION = 2;
 
 export const MESSAGE = Object.freeze({
   settings: 'ocean-settings',
   snapshot: 'ocean-snapshot',
+  flag: 'ocean-flag',
+  shake: 'ocean-shake',
   ready: 'ocean-ready',
   error: 'ocean-error',
 });
@@ -12,12 +12,18 @@ export const MESSAGE = Object.freeze({
 const field = (spec) => Object.freeze(spec);
 
 export const SETTINGS_SCHEMA = Object.freeze({
-  version: 1,
+  version: 2,
   order: Object.freeze([
     'enabled',
     'strength',
     'running',
     'quality',
+    'followTime',
+    'timePreset',
+    'followWeather',
+    'weatherPreset',
+    'weatherLat',
+    'weatherLon',
     'cameraDistance',
     'cameraHeight',
     'cameraPitch',
@@ -53,6 +59,59 @@ export const SETTINGS_SCHEMA = Object.freeze({
       default: 'balanced',
       values: Object.freeze(['balanced', 'high']),
       optionLabels: Object.freeze({ balanced: 'balanced', high: 'high' }),
+    }),
+    followTime: field({
+      type: 'boolean',
+      control: 'checkbox',
+      label: 'followTime',
+      default: false,
+    }),
+    timePreset: field({
+      type: 'enum',
+      control: 'select',
+      label: 'timePreset',
+      default: 'day',
+      values: Object.freeze(['dawn', 'day', 'dusk', 'night']),
+      optionLabels: Object.freeze({
+        dawn: 'presetDawn',
+        day: 'presetDay',
+        dusk: 'presetDusk',
+        night: 'presetNight',
+      }),
+    }),
+    followWeather: field({
+      type: 'boolean',
+      control: 'checkbox',
+      label: 'followWeather',
+      default: false,
+    }),
+    weatherPreset: field({
+      type: 'enum',
+      control: 'select',
+      label: 'weatherPreset',
+      default: 'clear',
+      values: Object.freeze(['clear', 'rain', 'snow']),
+      optionLabels: Object.freeze({
+        clear: 'weatherClear',
+        rain: 'weatherRain',
+        snow: 'weatherSnow',
+      }),
+    }),
+    weatherLat: field({
+      type: 'string',
+      control: 'coord',
+      label: 'weatherLat',
+      default: '',
+      min: -90,
+      max: 90,
+    }),
+    weatherLon: field({
+      type: 'string',
+      control: 'coord',
+      label: 'weatherLon',
+      default: '',
+      min: -180,
+      max: 180,
     }),
     cameraDistance: field({
       type: 'number',
@@ -102,6 +161,16 @@ export function clampNumber(value, min, max) {
   return Math.min(max, Math.max(min, value));
 }
 
+export function normalizeCoord(raw, min, max) {
+  if (raw === null || raw === undefined) return '';
+  const text = String(raw).trim();
+  if (text === '') return '';
+  const n = Number(text);
+  if (!Number.isFinite(n) || n < min || n > max) return '';
+  const truncated = Math.trunc(n * 100) / 100;
+  return truncated.toFixed(2);
+}
+
 function quantize(value, spec) {
   const clamped = clampNumber(value, spec.min, spec.max);
   const step = spec.step;
@@ -118,6 +187,10 @@ function normalizeField(spec, value) {
   }
   if (spec.type === 'enum') {
     return typeof value === 'string' && spec.values.includes(value) ? value : spec.default;
+  }
+  if (spec.type === 'string') {
+    if (spec.control === 'coord') return normalizeCoord(value, spec.min, spec.max);
+    return typeof value === 'string' ? value.trim() : spec.default;
   }
   if (typeof value === 'number' && Number.isFinite(value)) return quantize(value, spec);
   return spec.default;
@@ -146,15 +219,26 @@ export function readMessage(data) {
   return data;
 }
 
-export function settingsMessage(settings, sessionId) {
+export function settingsMessage(settings, sessionId, liveWeather = null) {
   return {
     v: PROTOCOL_VERSION,
     type: MESSAGE.settings,
     settings: normalizeSettings(settings),
     sessionId: typeof sessionId === 'string' && sessionId !== '' ? sessionId : null,
+    liveWeather: liveWeather === 'clear' || liveWeather === 'rain' || liveWeather === 'snow'
+      ? liveWeather
+      : null,
   };
 }
 
 export function snapshotMessage(snapshot) {
   return { v: PROTOCOL_VERSION, type: MESSAGE.snapshot, snapshot };
+}
+
+export function flagMessage(hasCustom, version = Date.now()) {
+  return { v: PROTOCOL_VERSION, type: MESSAGE.flag, hasCustom: Boolean(hasCustom), version };
+}
+
+export function shakeMessage(durationMs = 4000, intensity = 1) {
+  return { v: PROTOCOL_VERSION, type: MESSAGE.shake, durationMs, intensity };
 }

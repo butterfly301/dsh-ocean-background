@@ -19,6 +19,22 @@
     "recovering": "El mar no está listo; interfaz sin cambios",
     "mileageToday": "Navegado hoy",
     "mileageFleet": "Navegado",
-    "mileageUnit": "mn"
+    "mileageUnit": "mn",
+    "followTime": "Seguir hora real",
+    "timePreset": "Hora prefijada",
+    "presetDawn": "Amanecer",
+    "presetDay": "Mediodía",
+    "presetDusk": "Atardecer",
+    "presetNight": "Medianoche",
+    "followWeather": "Seguir clima real",
+    "weatherPreset": "Clima",
+    "weatherClear": "Despejado",
+    "weatherRain": "Lluvia",
+    "weatherSnow": "Nieve",
+    "useLocation": "Usar ubicación actual",
+    "weatherLat": "Latitud",
+    "weatherLon": "Longitud",
+    "locating": "Ubicando…",
+    "locationFailed": "Error al ubicar; introduce las coordenadas"
   }
 }
