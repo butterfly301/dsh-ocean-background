@@ -1,0 +1,5 @@
+# The window background row. Installing this bundle inserts it; the plugin's own
+# settings panel in the bottom right corner of the window handles everything else.
+- insert:
+    - id: ocean-background
+      name: 'dsh-ocean-background'

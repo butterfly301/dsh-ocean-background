@@ -1,6 +1,6 @@
 {
   "name": "dsh-ocean-background",
-  "version": "0.3.2",
+  "version": "0.4.0",
   "type": "module",
   "description": "A daytime sea behind the whole Harness window: a pirate ship for the main agent, a rowboat for every subagent, canvas that follows activity, and waves driven by token throughput.",
   "license": "MIT",
@@ -42,15 +42,21 @@
   "files": [
     "index.js",
     "client.js",
+    "cordis.patch.yml",
     "host",
     "runtime",
     "locale",
     "icon.svg",
-    "preview.png",
+    "preview-home.gif",
+    "preview-ocean.gif",
     "README.md",
+    "README.en.md",
     "LICENSE"
   ],
   "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    },
     "client": {
       "platform": "web",
       "immediately": true,

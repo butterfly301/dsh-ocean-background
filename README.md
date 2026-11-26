@@ -1,8 +1,20 @@
+简体中文 · [English](README.en.md)
+
 # dsh-ocean-background
 
 在整个 DSH 窗口后方铺一层日间海面动态背景。画面里的船对应正在运行的工作：主 Agent 是一艘持续航行的海盗大船，每个子 Agent 各代表一艘小艇，帆态表示是否在工作，海浪随 token 吞吐起伏。
 
-![海盗模式下的海洋背景预览：主 Agent 的大船在海面航行，右下角显示航行里程](preview.png)
+此包是 [`dsh-pirate-mode`](https://github.com/butterfly301/dsh-pirate-mode) 的组件，也可以单独安装使用。
+
+## 界面预览
+
+首页：主 Agent 的大船在海面航行，右下角记着今天已经航行了多少海里。
+
+![海洋背景下的首页：大船航行，右下角显示今日已航行里程](preview-home.gif)
+
+昼夜与天气：天空随时间从白日走向黄昏与阴天，海面同步换色，右侧可调背景强度、画质与镜头参数。
+
+![昼夜与天气：天空由白日过渡到黄昏与阴天，海面同步换色](preview-ocean.gif)
 
 ## 画面
 
@@ -17,13 +29,21 @@
 
 ## 安装与启用
 
-作为依赖安装：
+在 DSH 插件管理器中搜索 `dsh-ocean-background` 安装，或从终端装进桌面 profile：
+
+```bash
+dsh plugin --profile desktop add dsh-ocean-background
+```
+
+这个包自带 bundle 清单，安装后会自动插入 `ocean-background` 插件行，重启 DeepSeek Harness 就能看到海面。
+
+如果你在旧版里手动往 profile 的 `cordis.patch.yml` 写过 `id: ocean-background` 的 insert 行，升级到 0.4.0 后请删掉那一行，否则会和 bundle 自带的插入重复。
+
+要把海面装进你自己整合的 bundle 里，仍然可以按依赖安装并手写插入行：
 
 ```bash
 npm install dsh-ocean-background
 ```
-
-在 DSH bundle 的 `cordis.patch.yml` 中加一条插件行：
 
 ```yaml
 insert:
@@ -150,6 +170,8 @@ npm run sync    # 把工作区同步到 desktop profile 的 node_modules
 - **椰子树** Coconut palm：3D Assets，CC0 1.0。[来源](https://3dassets.dev/assets/tropical-island-ecology-coconut-palm-tall-7b181376)
 - **礁石** Cliff C、Rock Formation D、TallRock 2：由用户提供的免费礁石素材，已转为 GLB 并把贴图压到 1K，只用于岩岛与礁石群；来源与处理说明见 `runtime/assets/rocks/SOURCE.txt`。
 - **three.js**：three.js authors，MIT，随包附带于 `runtime/vendor`，全文见其中的 `THREE-LICENSE.txt`。
+
+如果这片海让你看得舒心，欢迎给仓库点一个 star。
 
 ## License
 
