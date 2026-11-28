@@ -143,23 +143,25 @@ test('prepareShip isolates StylShip_MainFlag through full parent transform chain
   assert.equal(mainMesh.geometry.getAttribute('uv'), initialUv);
 });
 
-test('ship lanterns illuminate at full intensity regardless of quality setting', () => {
+test('ship lanterns light from dusk and stay dark through the afternoon', () => {
   const pivot = new THREE.Group();
   const lanterns = createShipLanterns(pivot, {
     stern: new THREE.Vector3(4, 1.8, 0),
     mast: new THREE.Vector3(0.5, 4.2, -0.2),
   });
-  lanterns.update(1.5, 1, 'balanced');
-  const lightsBalanced = [];
-  pivot.traverse((n) => {
-    if (n.isPointLight) lightsBalanced.push(n.intensity);
-  });
-  lanterns.update(1.5, 1, 'high');
-  const lightsHigh = [];
-  pivot.traverse((n) => {
-    if (n.isPointLight) lightsHigh.push(n.intensity);
-  });
-  assert.equal(lightsBalanced.length, 2);
-  assert.deepEqual(lightsBalanced, lightsHigh);
-  assert.ok(lightsBalanced[0] > 4 && lightsBalanced[1] > 3);
+  const intensities = () => {
+    const values = [];
+    pivot.traverse((n) => {
+      if (n.isPointLight) values.push(n.intensity);
+    });
+    return values;
+  };
+  lanterns.update(1.5, 1, 13);
+  assert.deepEqual(intensities(), [0, 0]);
+  lanterns.update(1.5, 1, 18);
+  assert.deepEqual(intensities(), [0, 0]);
+  lanterns.update(1.5, 1, 20);
+  const night = intensities();
+  assert.equal(night.length, 2);
+  assert.ok(night[0] > 4 && night[1] > 3);
 });

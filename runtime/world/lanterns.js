@@ -98,8 +98,20 @@ export function createShipLanterns(shipPivot, anchors) {
   const mast = createLanternAssembly(anchors.mast, 1.7, 'mast');
   shipPivot.add(stern.group, mast.group);
 
-  function update(time, nightWeight) {
-    const active = typeof nightWeight === 'number' && nightWeight > 0.02;
+  function lanternWeight(hour, nightWeight) {
+    if (typeof hour !== 'number' || !Number.isFinite(hour)) {
+      return typeof nightWeight === 'number' ? nightWeight : 0;
+    }
+    const h = ((hour % 24) + 24) % 24;
+    if (h >= 20 || h < 5) return 1;
+    if (h >= 18 && h < 20) return (h - 18) / 2;
+    if (h >= 5 && h < 7) return (7 - h) / 2;
+    return 0;
+  }
+
+  function update(time, nightWeight, hour = null) {
+    const weight = lanternWeight(hour, nightWeight);
+    const active = weight > 0;
     stern.group.visible = active;
     mast.group.visible = active;
     if (!active) {
@@ -112,7 +124,7 @@ export function createShipLanterns(shipPivot, anchors) {
       return;
     }
 
-    const w = THREE.MathUtils.clamp(nightWeight, 0, 1);
+    const w = THREE.MathUtils.clamp(weight, 0, 1);
     const breathStern = 1 + 0.08 * Math.sin(time * 2.2 + stern.phase);
     const breathMast = 1 + 0.08 * Math.sin(time * 2.2 + mast.phase);
 

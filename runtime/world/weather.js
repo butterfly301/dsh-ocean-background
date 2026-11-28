@@ -33,7 +33,6 @@ export function createWeatherEffects(scene, { random = Math.random } = {}) {
   group.name = 'weather-precipitation';
   scene.add(group);
 
-  // Rain streaks (LineSegments)
   const rainPositions = new Float32Array(RAIN_MAX * 6);
   const rainSeeds = new Float32Array(RAIN_MAX * 3);
   for (let i = 0; i < RAIN_MAX; i += 1) {
@@ -63,7 +62,6 @@ export function createWeatherEffects(scene, { random = Math.random } = {}) {
   rainMesh.visible = false;
   group.add(rainMesh);
 
-  // Snow flakes (Points)
   const snowPositions = new Float32Array(SNOW_MAX * 3);
   const snowPhase = new Float32Array(SNOW_MAX);
   for (let i = 0; i < SNOW_MAX; i += 1) {

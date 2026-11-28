@@ -77,6 +77,7 @@ function disposeObservation(observation) {
 }
 
 function cacheEntry(ctx, sessionId) {
+  pruneCache(ctx, Date.now())
   const { sessionCache } = stateOf(ctx)
   let entry = sessionCache.get(sessionId)
   if (entry === undefined) {
@@ -111,8 +112,7 @@ function pruneCache(ctx, now) {
 }
 
 export function clearOceanCaches(ctx) {
-  if (ctx === undefined) states = new WeakMap()
-  else states.delete(ctx)
+  if (ctx !== undefined) states.delete(ctx)
 }
 
 function liveSession(ctx, sessionId) {

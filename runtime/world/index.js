@@ -22,6 +22,7 @@ export function createWorld({
   quality = 'balanced',
   random = Math.random,
   onAssetReady = () => {},
+  onAssetError = () => {},
 }) {
   const vesselRoot = new THREE.Group();
   vesselRoot.name = 'moving-vessel-group';
@@ -57,6 +58,7 @@ export function createWorld({
   let pendingFlag = null;
   let flagSeq = 0;
   let nightWeight = 0;
+  let nightHour = null;
   let currentWeather = 'clear';
 
   function applyFlagState() {
@@ -138,7 +140,9 @@ export function createWorld({
       if (dinghy) attachFleet();
       onAssetReady();
     }).catch((error) => {
-      if (!disposed) console.error('[ocean] ship failed to load', error);
+      if (disposed) return;
+      console.error('[ocean] ship failed to load', error);
+      onAssetError(error);
     });
 
     loadDinghy('./assets/dinghy.glb').then((loaded) => {
@@ -150,7 +154,9 @@ export function createWorld({
       if (ship) attachFleet();
       onAssetReady();
     }).catch((error) => {
-      if (!disposed) console.error('[ocean] dinghy failed to load', error);
+      if (disposed) return;
+      console.error('[ocean] dinghy failed to load', error);
+      onAssetError(error);
     });
   }
 
@@ -204,6 +210,7 @@ export function createWorld({
     hemiLight.groundColor.set(atmo.hemiGround);
     hemiLight.intensity = atmo.hemiIntensity;
     nightWeight = atmo.nightWeight ?? 0;
+    nightHour = typeof atmo.hour === 'number' ? atmo.hour : null;
     currentWeather = atmo.weather ?? 'clear';
   }
 
@@ -226,7 +233,7 @@ export function createWorld({
     const { time, flow, sea, motion = true, rollOffset = 0 } = frame;
     const cameraX = cameraXForShip(travelX, SHIP_X, settings?.cameraXOffset ?? 0);
     bobShip(time, flow, sea, rollOffset);
-    if (lanterns) lanterns.update(time, nightWeight);
+    if (lanterns) lanterns.update(time, nightWeight, nightHour);
     if (fleet) fleet.update(dt, { time, flow, sea, worldOffset: travelX, rollOffset });
     weatherEffects.update(dt, {
       weather: currentWeather,

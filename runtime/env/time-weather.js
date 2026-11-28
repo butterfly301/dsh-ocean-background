@@ -1,5 +1,3 @@
-// Pure 24-hour atmosphere interpolation and weather mood blending (no Three.js).
-
 export const DAY_PALETTE = Object.freeze({
   skyZenith: '#3f87bd',
   skyHorizon: '#b6dbe8',
@@ -146,7 +144,6 @@ export function paletteForHour(rawHour) {
   }
   const span = Math.max(0.0001, b.hour - a.hour);
   const linear = (wrapped - a.hour) / span;
-  // Smoothstep for gentle transitions near noon/midnight
   const t = linear * linear * (3 - 2 * linear);
   const sunDir = normalizeVec3({
     x: lerpNum(a.sunDir.x, b.sunDir.x, t),
@@ -154,6 +151,7 @@ export function paletteForHour(rawHour) {
     z: lerpNum(a.sunDir.z, b.sunDir.z, t),
   });
   return {
+    hour: wrapped,
     skyZenith: lerpHex(a.skyZenith, b.skyZenith, t),
     skyHorizon: lerpHex(a.skyHorizon, b.skyHorizon, t),
     sunDir,
@@ -225,6 +223,7 @@ export function blendAtmosphere(current, target, alpha) {
     z: lerpNum(current.sunDir.z, target.sunDir.z, t),
   });
   return {
+    hour: target.hour ?? current.hour,
     skyZenith: lerpHex(current.skyZenith, target.skyZenith, t),
     skyHorizon: lerpHex(current.skyHorizon, target.skyHorizon, t),
     sunDir,

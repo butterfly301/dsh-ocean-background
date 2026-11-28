@@ -6,8 +6,18 @@ if (embedded) document.documentElement.classList.add('embedded');
 
 const app = createApp({ embedded, params });
 
+let resizeQueued = false;
+const onResize = () => {
+  if (resizeQueued) return;
+  resizeQueued = true;
+  requestAnimationFrame(() => {
+    resizeQueued = false;
+    app.onResize();
+  });
+};
+
 window.addEventListener('message', app.onMessage);
-window.addEventListener('resize', app.onResize);
+window.addEventListener('resize', onResize);
 document.addEventListener('visibilitychange', app.onVisibility);
 window.addEventListener('pagehide', app.dispose);
 

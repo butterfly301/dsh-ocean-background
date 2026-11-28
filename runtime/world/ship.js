@@ -43,7 +43,6 @@ function buildFlagPlanarUv(node) {
   const uv = new Float32Array(pos.count * 2);
   for (let i = 0; i < pos.count; i += 1) {
     uv[i * 2] = (xs[i] - minX) / spanX;
-    // Flag textures use flipY = false (v = 0 at top edge, v = 1 at bottom edge).
     uv[i * 2 + 1] = (maxY - ys[i]) / spanY;
   }
   return new THREE.BufferAttribute(uv, 2);
@@ -215,7 +214,6 @@ export function prepareShip(gltf) {
       node.castShadow = false;
       sails.push(node);
     } else if (isMainFlag(name)) {
-      // Clone geometry & material and keep detached from SailsRope atlas merging so StylShip_MainFlag swaps cleanly without affecting Flag1 or Flag2.
       if (node.geometry && typeof node.geometry.clone === 'function') {
         node.geometry = node.geometry.clone();
       }

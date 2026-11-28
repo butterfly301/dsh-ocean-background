@@ -11,7 +11,6 @@ const FORMATS = Object.freeze([
 
 export function detectImageFormat(buffer) {
   if (!Buffer.isBuffer(buffer) || buffer.byteLength < 12) return null;
-  // PNG: 89 50 4E 47 0D 0A 1A 0A
   if (
     buffer[0] === 0x89
     && buffer[1] === 0x50
@@ -24,11 +23,9 @@ export function detectImageFormat(buffer) {
   ) {
     return FORMATS[0];
   }
-  // JPEG: FF D8 FF
   if (buffer[0] === 0xFF && buffer[1] === 0xD8 && buffer[2] === 0xFF) {
     return FORMATS[1];
   }
-  // WebP: RIFF....WEBP
   if (
     buffer.subarray(0, 4).toString('ascii') === 'RIFF'
     && buffer.subarray(8, 12).toString('ascii') === 'WEBP'

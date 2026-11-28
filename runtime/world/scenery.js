@@ -18,6 +18,7 @@ import { createRockLibrary } from './rock-assets.js';
 
 const ISLAND_SPAN = 300;
 const ISLAND_COUNT = 3;
+const ISLAND_LANES = [-0.45, -0.18, 0.30];
 const REEF_SPAN = 260;
 const REEF_COUNT = 4;
 const ROCKY_ISLAND = 'rocky-island';
@@ -245,7 +246,7 @@ export function createScenery(scene, camera, { random = Math.random } = {}) {
     island.name = `tropical-island-${index + 1}`;
     const archetype = chooseIslandArchetype(random, visibleIslandTypes);
     visibleIslandTypes.add(archetype);
-    const laneX = [-ISLAND_SPAN * 0.45, -ISLAND_SPAN * 0.18, ISLAND_SPAN * 0.30][index];
+    const laneX = ISLAND_SPAN * ISLAND_LANES[index % ISLAND_LANES.length];
     island.position.set(laneX, 0, islandZ({ cameraZ: cameraZ(), archetype, random }));
     island.scale.setScalar(islandScale(random));
     island.rotation.y = random() * TAU;

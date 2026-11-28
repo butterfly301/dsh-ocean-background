@@ -9,12 +9,13 @@ export function installForkSnapshots(ctx, ledger) {
     notifyOnce(ctx, 'warn', 'fork-snapshot', 'ocean-background: sessionController.fork is unavailable; fork mileage cannot be inherited')
     return () => {}
   }
-  const previous = controller[FORK_OWNER]
+  const raw = controller[Symbol.for('cordis.original')] ?? controller
+  const previous = raw[FORK_OWNER]
   if (typeof previous === 'function') {
     try { previous() } catch {}
   }
-  const original = controller.fork
-  const hadOwn = Object.hasOwn(controller, 'fork')
+  const original = raw.fork
+  const hadOwn = Object.hasOwn(raw, 'fork')
   const wrapper = async function forkWithMileage(request) {
     let token = null
     try {
@@ -26,7 +27,7 @@ export function installForkSnapshots(ctx, ledger) {
     } catch (error) {
       logOnce(ctx, 'warn', 'fork-snapshot', `ocean-background: fork mileage snapshot failed: ${describeError(error)}`)
     }
-    const value = await original.call(this, request)
+    const value = await original.call(raw, request)
     try {
       if (token && value && typeof value.sessionId === 'string') {
         await ledger.settleFork(token, value.sessionId)
@@ -37,23 +38,23 @@ export function installForkSnapshots(ctx, ledger) {
     return value
   }
   try {
-    controller.fork = wrapper
+    raw.fork = wrapper
   } catch (error) {
     logOnce(ctx, 'warn', 'fork-snapshot', `ocean-background: sessionController.fork cannot be wrapped: ${describeError(error)}`)
     return () => {}
   }
-  if (controller.fork !== wrapper) {
+  if (raw.fork !== wrapper) {
     notifyOnce(ctx, 'warn', 'fork-snapshot', 'ocean-background: sessionController.fork is read-only; fork mileage cannot be inherited')
     return () => {}
   }
   const restore = () => {
-    if (controller.fork === wrapper) {
-      if (hadOwn) controller.fork = original
-      else delete controller.fork
+    if (raw.fork === wrapper) {
+      if (hadOwn) raw.fork = original
+      else delete raw.fork
     }
-    if (controller[FORK_OWNER] === restore) delete controller[FORK_OWNER]
+    if (raw[FORK_OWNER] === restore) delete raw[FORK_OWNER]
   }
-  controller[FORK_OWNER] = restore
+  raw[FORK_OWNER] = restore
   return restore
 }
 

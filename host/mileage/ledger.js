@@ -131,6 +131,55 @@ export function createMileageLedger({ dir = null, now = Date.now, writeDelayMs =
     }
   }
 
+  function mergeDisk(raw) {
+    if (!raw || typeof raw !== 'object') return;
+    if (raw.days && typeof raw.days === 'object') {
+      for (const [key, value] of Object.entries(raw.days)) {
+        const meters = metersOf(value);
+        if (meters === null) continue;
+        const current = state.days[key] ?? 0;
+        state.days[key] = Math.max(current, meters);
+      }
+    }
+    if (raw.fleets && typeof raw.fleets === 'object') {
+      for (const [key, value] of Object.entries(raw.fleets)) {
+        const meters = metersOf(value?.meters);
+        if (typeof key !== 'string' || key === '' || meters === null) continue;
+        const updatedAt = typeof value?.updatedAt === 'number' && Number.isFinite(value.updatedAt) ? value.updatedAt : 0;
+        const current = state.fleets[key];
+        if (!current || updatedAt >= current.updatedAt) state.fleets[key] = { meters, updatedAt };
+      }
+    }
+    if (raw.forks && typeof raw.forks === 'object') {
+      for (const [key, value] of Object.entries(raw.forks)) {
+        if (state.forks[key] !== undefined) continue;
+        const baseMeters = metersOf(value?.baseMeters);
+        if (typeof key !== 'string' || key === '' || baseMeters === null) continue;
+        state.forks[key] = {
+          baseMeters,
+          sourceRootId: typeof value?.sourceRootId === 'string' ? value.sourceRootId : '',
+          createdAt: typeof value?.createdAt === 'number' && Number.isFinite(value.createdAt) ? value.createdAt : 0,
+        };
+      }
+    }
+    if (raw.instances && typeof raw.instances === 'object') {
+      for (const [key, value] of Object.entries(raw.instances)) {
+        const x = metersOf(value?.x);
+        if (typeof key !== 'string' || key === '' || x === null) continue;
+        const at = typeof value?.at === 'number' && Number.isFinite(value.at) ? value.at : 0;
+        const current = state.instances[key];
+        if (!current || at >= current.at) {
+          state.instances[key] = {
+            x,
+            at,
+            rootId: typeof value?.rootId === 'string' && value.rootId !== '' ? value.rootId : null,
+            eligible: value?.eligible === true,
+          };
+        }
+      }
+    }
+  }
+
   function flush() {
     if (saveTimer !== null) {
       clearTimeout(saveTimer)
@@ -138,9 +187,15 @@ export function createMileageLedger({ dir = null, now = Date.now, writeDelayMs =
     }
     if (dir === null || !dirty) return writing
     dirty = false
-    const body = JSON.stringify(serialize(), null, 2)
     writing = writing.then(async () => {
       await mkdir(dir, { recursive: true })
+      try {
+        mergeDisk(JSON.parse(await readFile(join(dir, FILE), 'utf8')))
+        pruneInstances(now())
+      } catch (error) {
+        if (error?.code !== 'ENOENT') throw error
+      }
+      const body = JSON.stringify(serialize(), null, 2)
       const temp = join(dir, `.${FILE}.${process.pid}.${Date.now()}.tmp`)
       try {
         await writeFile(temp, body, 'utf8')

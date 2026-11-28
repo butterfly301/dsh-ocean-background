@@ -4,6 +4,7 @@ const OPEN_METEO_BASE = 'https://api.open-meteo.com/v1/forecast';
 const REQUEST_TIMEOUT_MS = 6000;
 
 export function truncateCoord(value, min, max) {
+  if (typeof value !== 'number' && (typeof value !== 'string' || value.trim() === '')) return null;
   const n = Number(value);
   if (!Number.isFinite(n) || n < min || n > max) return null;
   return Number((Math.trunc(n * 100) / 100).toFixed(2));
@@ -13,11 +14,9 @@ export function mapWeatherCode(code) {
   const n = Number(code);
   if (!Number.isFinite(n)) return 'clear';
   const c = Math.trunc(n);
-  // Snowfall, snow grains, snow showers
   if (c === 71 || c === 73 || c === 75 || c === 77 || c === 85 || c === 86) {
     return 'snow';
   }
-  // Drizzle, rain, freezing rain, rain showers, thunderstorms
   if (
     (c >= 51 && c <= 67)
     || (c >= 80 && c <= 82)

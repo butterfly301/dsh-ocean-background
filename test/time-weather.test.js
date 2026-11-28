@@ -79,6 +79,9 @@ test('weather codes map cleanly to clear/rain/snow and coords truncate to 2 deci
   assert.equal(mapWeatherCode(86), 'snow');
   assert.equal(truncateCoord(31.2398, -90, 90), 31.23);
   assert.equal(truncateCoord(-190, -180, 180), null);
+  assert.equal(truncateCoord(null, -90, 90), null);
+  assert.equal(truncateCoord('', -180, 180), null);
+  assert.equal(truncateCoord('  ', -180, 180), null);
 });
 
 test('geo and weather proxy routes truncate coordinates and query Open-Meteo', async () => {

@@ -34,6 +34,11 @@ function baseHeaders(extra) {
   return { 'x-content-type-options': 'nosniff', ...extra };
 }
 
+function finishIfOpen(res, status) {
+  if (res.headersSent || res.destroyed || res.writableEnded) return;
+  finish(res, status);
+}
+
 function finish(res, status, headers) {
   res.writeHead(status, headers ?? baseHeaders({ 'cache-control': 'no-cache' }));
   res.end();
@@ -158,20 +163,16 @@ async function serveLocale(req, res, pathname) {
     try {
       const content = await readFile(resolve(LOCALE_ROOT, `${id}.json`), 'utf8');
       const data = JSON.parse(content);
-      sendJson(req, res, { lang: id, ...data }, 200, 'public, max-age=60');
+      sendJson(req, res, { ...data, lang: id }, 200, 'public, max-age=60');
       return;
     } catch (error) {
       if (error?.code !== 'ENOENT') {
-        finish(res, 500);
+        finishIfOpen(res, 500);
         return;
       }
     }
   }
   finish(res, 404);
-}
-
-function cachePolicyFor() {
-  return 'no-cache';
 }
 
 async function serveStatic(req, res, pathname) {
@@ -212,7 +213,7 @@ async function serveStatic(req, res, pathname) {
   }
 
   const etag = `"${info.mtimeMs.toString(36)}-${info.size.toString(36)}"`;
-  const cacheControl = cachePolicyFor();
+  const cacheControl = 'no-cache';
   if (req.headers['if-none-match'] === etag) {
     res.writeHead(304, baseHeaders({ etag, 'cache-control': cacheControl }));
     res.end();
@@ -223,7 +224,7 @@ async function serveStatic(req, res, pathname) {
   try {
     body = await readFile(target);
   } catch {
-    finish(res, 500);
+    finishIfOpen(res, 500);
     return;
   }
   res.writeHead(200, baseHeaders({
@@ -323,11 +324,32 @@ async function serveFlagDelete(flagStore, req, res) {
   sendJson(req, res, { ok: true, ...cleared });
 }
 
+function rejectCrossSite(req, res, webServer) {
+  const site = req.headers?.['sec-fetch-site'];
+  if (typeof site === 'string' && site !== 'same-origin' && site !== 'none') {
+    res.writeHead(403, { 'x-content-type-options': 'nosniff' });
+    res.end();
+    return true;
+  }
+  const origin = req.headers?.origin;
+  if (typeof origin === 'string' && origin !== '') {
+    let expected = null;
+    try { expected = typeof webServer?.getOrigin === 'function' ? webServer.getOrigin() : null; } catch {}
+    if (expected && origin !== expected) {
+      res.writeHead(403, { 'x-content-type-options': 'nosniff' });
+      res.end();
+      return true;
+    }
+  }
+  return false;
+}
+
 export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, weatherService = createWeatherService() }) {
   return ctx.webServer.register({
     kind: 'prefix',
     path: BASE,
     handler: (req, res) => {
+      if (req.method !== 'GET' && req.method !== 'HEAD' && rejectCrossSite(req, res, ctx.webServer)) return;
       let url;
       try {
         url = new URL(req.url ?? BASE, 'http://dsh.local');
@@ -345,7 +367,7 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
         }
         void serveSnapshot(ctx, readSnapshot, req, res, url).catch((error) => {
           logOnce(ctx, 'warn', 'snapshot-route', `ocean-background: snapshot route failed: ${describeError(error)}`);
-          finish(res, 500);
+          finishIfOpen(res, 500);
         });
         return;
       }
@@ -357,7 +379,7 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
         }
         void serveVoyage(ctx, ledger, readSnapshot, req, res).catch((error) => {
           logOnce(ctx, 'warn', 'voyage-route', `ocean-background: voyage route failed: ${describeError(error)}`);
-          finish(res, 500);
+          finishIfOpen(res, 500);
         });
         return;
       }
@@ -366,21 +388,21 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
         if (isRead) {
           void serveFlagMeta(flagStore, req, res).catch((error) => {
             logOnce(ctx, 'warn', 'flag-route', `ocean-background: flag route failed: ${describeError(error)}`);
-            finish(res, 500);
+            finishIfOpen(res, 500);
           });
           return;
         }
         if (req.method === 'POST') {
           void serveFlagUpload(flagStore, req, res).catch((error) => {
             logOnce(ctx, 'warn', 'flag-upload', `ocean-background: flag upload failed: ${describeError(error)}`);
-            finish(res, 500);
+            finishIfOpen(res, 500);
           });
           return;
         }
         if (req.method === 'DELETE') {
           void serveFlagDelete(flagStore, req, res).catch((error) => {
             logOnce(ctx, 'warn', 'flag-delete', `ocean-background: flag delete failed: ${describeError(error)}`);
-            finish(res, 500);
+            finishIfOpen(res, 500);
           });
           return;
         }
@@ -395,7 +417,7 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
         }
         void serveFlagImage(flagStore, req, res).catch((error) => {
           logOnce(ctx, 'warn', 'flag-image', `ocean-background: flag image failed: ${describeError(error)}`);
-          finish(res, 500);
+          finishIfOpen(res, 500);
         });
         return;
       }
@@ -440,7 +462,7 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
         }
         void serveLocale(req, res, pathname).catch((error) => {
           logOnce(ctx, 'warn', 'locale-route', `ocean-background: locale route failed: ${describeError(error)}`);
-          finish(res, 500);
+          finishIfOpen(res, 500);
         });
         return;
       }
@@ -451,7 +473,7 @@ export function installRoutes(ctx, { ledger, readSnapshot, flagStore = null, wea
       }
       void serveStatic(req, res, pathname).catch((error) => {
         logOnce(ctx, 'warn', 'asset-route', `ocean-background: asset route failed: ${describeError(error)}`);
-        finish(res, 500);
+        finishIfOpen(res, 500);
       });
     },
   });

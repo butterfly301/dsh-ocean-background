@@ -499,7 +499,7 @@ window.__ModuleLoader__.load({
       };
     }
 
-    function createFrameHost({ contract, onReady, onError, onLoad = () => {} }) {
+    function createFrameHost({ onError, onLoad = () => {} }) {
       let element = null;
       let ready = false;
       let deadline = 0;
@@ -702,11 +702,6 @@ window.__ModuleLoader__.load({
       frame = createFrameHost({
         contract,
         onLoad: () => postSettings(),
-        onReady: () => {
-          state.revealed = true;
-          applySkin();
-          renderMileage();
-        },
         onError: (stage) => {
           if (stage === 'timeout') console.warn('[ocean-background] renderer readiness timed out');
           state.revealed = false;
@@ -773,8 +768,17 @@ window.__ModuleLoader__.load({
         }
       }
 
+      const applyWeatherFallback = () => {
+        if (state.disposed) return;
+        if (state.liveWeather && state.lastWeatherOkAt > 0 && Date.now() - state.lastWeatherOkAt > WEATHER_STALE_MS) {
+          state.liveWeather = 'clear';
+          postSettings();
+        }
+      };
+
       function pollWeather() {
         if (state.disposed || !settings.current.enabled || !settings.current.followWeather) return;
+        applyWeatherFallback();
         const { weatherLat, weatherLon } = settings.current;
         if (!weatherLat || !weatherLon || typeof fetch !== 'function') return;
         fetch(`${BASE}/weather?lat=${encodeURIComponent(weatherLat)}&lon=${encodeURIComponent(weatherLon)}`, { cache: 'no-store' })
@@ -789,17 +793,11 @@ window.__ModuleLoader__.load({
               }
               return;
             }
-            if (state.liveWeather && state.lastWeatherOkAt > 0 && Date.now() - state.lastWeatherOkAt > WEATHER_STALE_MS) {
-              state.liveWeather = 'clear';
-              postSettings();
-            }
+            applyWeatherFallback();
           })
           .catch(() => {
             if (state.disposed) return;
-            if (state.liveWeather && state.lastWeatherOkAt > 0 && Date.now() - state.lastWeatherOkAt > WEATHER_STALE_MS) {
-              state.liveWeather = 'clear';
-              postSettings();
-            }
+            applyWeatherFallback();
           });
       }
 
@@ -891,7 +889,7 @@ window.__ModuleLoader__.load({
       function currentSessionId() {
         const selected = Object.values(sessions.getSnapshot().byId)
           .filter((session) => session.retainedBy?.mainView > 0);
-        return selected.length === 1 ? selected[0].id : null;
+        return selected[0]?.id ?? null;
       }
 
       let selectionQueued = false;
@@ -916,8 +914,8 @@ window.__ModuleLoader__.load({
         applySkin();
         panel.sync();
         button.dataset.on = String(settings.current.enabled);
-        frame.setVisible(settings.current.enabled);
         if (settings.current.enabled) {
+          frame.setVisible(true);
           if (!wasEnabled) restartPoll();
           if (!frame.mounted) {
             frame.mount();
@@ -927,6 +925,7 @@ window.__ModuleLoader__.load({
         } else {
           stopPoll();
           mileage.hide();
+          frame.unmount();
         }
         wasEnabled = settings.current.enabled;
         syncWeatherPoll();
@@ -969,8 +968,10 @@ window.__ModuleLoader__.load({
           frame.clearDeadline();
           stopPoll();
         } else {
-          frame.mount();
-          frame.arm();
+          if (settings.current.enabled) {
+            frame.mount();
+            frame.arm();
+          }
           restartPoll();
         }
       };
@@ -1020,8 +1021,12 @@ window.__ModuleLoader__.load({
       button.title = text().open;
       button.setAttribute('aria-label', text().open);
       button.dataset.on = String(settings.current.enabled);
-      frame.mount();
-      frame.setVisible(settings.current.enabled);
+      if (settings.current.enabled) {
+        frame.mount();
+        frame.setVisible(true);
+      } else {
+        frame.unmount();
+      }
       applySkin();
       fetchFlagState();
       syncWeatherPoll();

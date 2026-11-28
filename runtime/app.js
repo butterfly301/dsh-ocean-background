@@ -66,7 +66,7 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
   }
 
   function announceReady() {
-    if (announced) return;
+    if (announced || failed) return;
     announced = true;
     if (!embedded) return;
     post(message(MESSAGE.ready));
@@ -149,6 +149,7 @@ export function createApp({ embedded = false, params = new URLSearchParams() } =
         if (latestSnapshot && world) world.syncFleet(latestSnapshot.fleet, latestSnapshot.sessionId);
         syncLifecycle();
       },
+      onAssetError: (error) => fail('assets', error),
     });
     world.applySettings(settings);
     world.syncPosition(travelX);
